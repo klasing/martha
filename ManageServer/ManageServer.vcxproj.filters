@@ -45,5 +45,58 @@
     <Image Include="small.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="server_space\mk_logo_09-08-2019.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="server_space\download-and-upload.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\frame-bottom.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\frame-center.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\frame-center-bottom.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\frame-center-top.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\frame-top.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\frame-top-left.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\frame-top-right.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\index.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\more.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\popup-login.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\popup-register.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\popup-reset_password.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\js\script.js">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="server_space\css\style.css">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="index.html">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>register</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<script src="js/script.js"></script>
+</head>
+<body>
+<div class="register" id="register">
+<form>
+<label for="user_email_address">email address</label>
+<br>
+<input type="text" name="user_email_address" id="user_email_address" autocomplete="email" required>
+<br>
+<label for="user_password">password</label>
+<br>
+<input type="password" name="user_password" id="user_password" autocomplete="password" required>
+<br><br>
+<input class="button" id="button_register" type="button" value="submit" onclick="doRegister()">
+<br>
+<p class="register_result" id="register_result"></p>
+</form>
+</div>
+<div class="register_confirm" id="register_confirm">
+<form>
+<label for="code_confirm">enter the code received by email</label>
+<br>
+<input type="text" name="code_confirm" id="code_confirm" autocomplete="code" required>
+<br><br>
+<input class="button" id="button_register_confirm" type="button" value="submit"
+onclick="doConfirm('register_confirm_result', 'button_register_confirm', 'register_confirm')">
+<br>
+<p class="register_confirm_result" id="register_confirm_result"></p>
+</form>
+</div>
+</body>
+</html>

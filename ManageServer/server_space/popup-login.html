@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>login</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<script src="js/script.js"></script>
+</head>
+<body>
+<div class="login" id="login">
+<form>
+<label for="user_email_address">email address</label>
+<br>
+<input type="text" name="user_email_address" id="user_email_address" autocomplete="email" required>
+<br>
+<label for="user_password">password</label>
+<br>
+<input type="password" name="user_password" id="user_password" autocomplete="password" required>
+<br><br>
+<input class="button" type="button" value="submit" onclick="doLogin()">
+<br>
+<p class="login_result" id="login_result"></p>
+<a href="http://www.localhost.com:8080/server_space/popup-reset_password.html">forgot password?</a>
+</form>
+</div>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>http_server_async_ssl</title>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<script src="js/script.js"></script>
+</head>
+<body>
+<p id="msg"></p>
+<label for="input">download</label>
+<br>
+<input type="text" id="input">
+<input type="button" class="button" value="transfer" onclick="set_href_and_activate()">
+<a href="" download id="hyper_link" style="opacity: 0;"></a>
+
+<form id="form" method="post" enctype="multipart/form-data">
+<div>
+<label for="file">upload</label>
+<br>
+<input type="text" id="field" value="click header to select" readonly>
+<!-- default submit button is disabled -->
+<input type="submit" class="button" id="transfer" value="transfer" disabled>
+<input type="file" id="file" name="file">
+</div>
+</form>
+<script>
+  var file = document.querySelector('#file');
+
+  file.style.opacity = 0;
+  file.addEventListener('change', updateField);
+
+  function updateField()
+  {
+    console.log("updateField");
+    document.getElementById("field").value = file.files[0].name;
+    if (localStorage.getItem('cookieIsSet') == 'false')//if (!Boolean(getCookieIsSet()))
+    {
+      document.getElementById("msg").innerHTML =
+        "Please login first";
+      return;
+    }
+    else
+    {
+      document.getElementById("msg").innerHTML =
+        "";
+    }
+    // enable button
+    console.log("enable button");
+    document.getElementById("transfer").disabled = false;
+  }
+</script>
+</body>
+</html>

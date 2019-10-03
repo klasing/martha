@@ -1,0 +1,25 @@
+h1, h5, p, label, .login_result
+, .register_result, .register_confirm_result
+, .reset_password_result, .reset_password_confirm_result
+{
+  color: #808080;
+  font-family: verdana;
+  font-weight: normal;
+}
+.button, input.button
+{
+  color: #808080;
+  font-family: verdana;
+  border: none;
+  background-color: #FFFFFF;
+}
+img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 10%;
+}
+.register_confirm, .reset_password_confirm
+{
+  display: none;
+}
