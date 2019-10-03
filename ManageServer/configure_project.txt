@@ -1,0 +1,34 @@
+Configure project in Visual Studio
+----------------------------------
+1) C/C++->General->Additional Include Directories
+   C:\Program Files\boost\boost_1_70_0
+   C:\openssl\include
+   C:\openssl\lib
+2) Linker->Additional Library Directories
+   C:\Program Files\boost\boost_1_70_0\libs
+   C:\Program Files\boost\boost_1_70_0\stage\lib
+   C:\openssl\lib
+3) Linker->Input->Additional Dependencies
+   ssleay32.lib
+   libeay32.lib
+4) a) C/C++ -> PreProcessor -> PreProcessor Definitions
+      _WINSOCK_DEPRECATED_NO_WARNINGS
+   b) Linker -> Input -> Additional Dependencies
+      Ws2_32.lib
+5) add sqlite3.dll to the debug map
+   to run HttpServerAsyncSSL.exe
+6) copy the map sqlite3, containing:
+   sqlite3.dll
+   sqlite3.h
+   sqlite3.lib
+   sqlite3-64.dll
+   sqlite3-64.lib
+   to the solution, so the map comes on the same level as the project
+7) to run the .exe, copy the following maps to the debug directory
+   sqlite3.dll
+   server_space (a map)
+   user_space (a map)
+8) ssl.h must be in the project map to run the SmtpClient (it switches over to
+   a secure socket layer)   
+================================================================================
+

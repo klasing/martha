@@ -151,9 +151,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Connect2SQLite.hpp" />
+    <ClInclude Include="CppSQLite3.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="HandlerForLogin.hpp" />
+    <ClInclude Include="HandlerForRegister.hpp" />
+    <ClInclude Include="HandlerForResetPassword.hpp" />
+    <ClInclude Include="ListView.hpp" />
     <ClInclude Include="ManageServer.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="ServerLogging.hpp" />
+    <ClInclude Include="SmtpClient.hpp" />
+    <ClInclude Include="sqlite3.h" />
+    <ClInclude Include="ssl.h" />
+    <ClInclude Include="StatusBar.hpp" />
+    <ClInclude Include="TabControl.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ManageServer.cpp" />
@@ -184,6 +196,9 @@
     <None Include="server_space\popup-login.html" />
     <None Include="server_space\popup-register.html" />
     <None Include="server_space\popup-reset_password.html" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="configure_project.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
