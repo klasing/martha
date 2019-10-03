@@ -1,30 +1,36 @@
-//{{NO_DEPENDENCIES}}
-// Microsoft Visual C++ generated include file.
-// Used by ManageServer.rc
+#define IDC_STATIC					-1
+#define IDC_ACCELERATOR				30001
+#define IDC_MENU					30002
+#define IDC_LVDB					30003
+#define IDC_STATUSBAR				30004
+#define IDC_TABCONTROL				30005
 
-#define IDS_APP_TITLE			103
 
-#define IDR_MAINFRAME			128
-#define IDD_MANAGESERVER_DIALOG	102
-#define IDD_ABOUTBOX			103
-#define IDM_ABOUT				104
-#define IDM_EXIT				105
-#define IDI_MANAGESERVER			107
-#define IDI_SMALL				108
-#define IDC_MANAGESERVER			109
-#define IDC_MYICON				2
-#ifndef IDC_STATIC
-#define IDC_STATIC				-1
-#endif
-// Next default values for new objects
-//
-#ifdef APSTUDIO_INVOKED
-#ifndef APSTUDIO_READONLY_SYMBOLS
+#define IDD_ABOUTBOX				30011
 
-#define _APS_NO_MFC					130
-#define _APS_NEXT_RESOURCE_VALUE	129
-#define _APS_NEXT_COMMAND_VALUE		32771
-#define _APS_NEXT_CONTROL_VALUE		1000
-#define _APS_NEXT_SYMED_VALUE		110
-#endif
-#endif
+#define IDI_MANAGESERVER			30021
+#define IDI_SMALL					30022
+
+#define IDM_ABOUT					30031
+#define IDM_DB_SELECT_ALL			30032
+#define IDM_DB_SELECT_ALL_CALLBACK	30033
+#define IDM_DB_DELETE_USER			30034
+#define IDM_EXIT					30035
+#define IDM_LOG_MSG					30036
+#define IDM_MONITORING_CLEAR		30037
+#define IDM_MONITORING_LOGFILESIZE	30038
+#define IDM_MONITORING_START		30039
+#define IDM_MONITORING_STOP			30040
+#define IDM_SERVER_START			30041
+#define IDM_SERVER_STOP				30042
+
+#define IDS_APP_TITLE				30051
+#define IDS_WINDOWCLASS				30052
+#define IDS_LVDB_COL0				30053
+#define IDS_LVDB_COL1				30054
+#define IDS_LVDB_COL2				30055
+#define IDS_LVLOG_COL0				30056
+#define IDS_LVLOG_COL1				30057
+#define IDS_LVLOG_COL2				30058
+#define IDS_LVLOG_COL3				30059
+#define IDS_LVLOG_COL4				30060
