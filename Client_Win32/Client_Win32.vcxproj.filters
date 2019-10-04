@@ -18,13 +18,19 @@
     <ClInclude Include="framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Client_Win32.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GroupBox.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GroupBoxConnect.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StatusBar.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -43,6 +49,9 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="Client_Win32.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="favicon.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

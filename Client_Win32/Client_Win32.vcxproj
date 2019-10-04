@@ -153,8 +153,10 @@
   <ItemGroup>
     <ClInclude Include="Client_Win32.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GroupBox.hpp" />
+    <ClInclude Include="GroupBoxConnect.hpp" />
     <ClInclude Include="Resource.h" />
-    <ClInclude Include="targetver.h" />
+    <ClInclude Include="StatusBar.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Client_Win32.cpp" />
@@ -164,6 +166,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="Client_Win32.ico" />
+    <Image Include="favicon.ico" />
     <Image Include="small.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
