@@ -25,6 +25,7 @@ LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	DlgProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	Login(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK	ForgotPassword(HWND, UINT, WPARAM, LPARAM);
 
 // http_client_async function (runs in a WIN32-Thread)
 DWORD WINAPI		http_client_async(LPVOID);
@@ -78,7 +79,9 @@ wWinMain(_In_ HINSTANCE hInstance
 		// necessary to convey a WM_COMMAND message,
 		// containing a (...) message,
 		// to the concerning dialog
-		if (IsDialogMessage(FindWindow(NULL, L"DlgProc"), &msg))
+		if (IsDialogMessage(FindWindow(NULL, L"DlgProc"), &msg)
+			|| IsDialogMessage(FindWindow(NULL, L"Login"), &msg)
+			|| IsDialogMessage(FindWindow(NULL, L"ForgotPassword"), &msg))
 			continue;
 		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
 		{
@@ -252,6 +255,9 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 	switch (uMsg)
 	{
 	case WM_INITDIALOG:
+		// necessary for the message loop to find this dialog, when found
+		// the message pump can dispatch messages to this dialog
+		SetWindowText(hDlg, L"DlgProc");
 		// create groupbox
 		hWndConnect = oGroupBoxConnect.createGroupBox(hInst
 			, hDlg
@@ -279,7 +285,7 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 	} // eof WM_CTLCOLORSTATIC
 	case WM_SIZE:
 		oGroupBoxConnect.SetGroupBox(hWndConnect, 10, 20, 165, 110);
-		oGroupBoxAccess.SetGroupBox(hWndAccess, 185, 20, 105, 110);
+		oGroupBoxAccess.SetGroupBox(hWndAccess, 185, 20, 85, 110);
 		//oGroupBox.SetGroupBox(hWndDownload, 120, 20, 100, 50);
 		//oGroupBox.SetGroupBox(hWndUpload, 120, 80, 100, 50);
 		return TRUE;
@@ -297,18 +303,6 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 		case IDC_BTN_REGISTER:
 			OutputDebugString(L"IDC_BTN_REGISTER\n");
 			break;
-		//case IDC_BTN_FORGOTPASSWORD:
-		//	OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
-		//	break;
-		//case IDOK:
-		//case IDCANCEL:
-		//	OutputDebugString(L"IDOK\n");
-		//	if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-		//	{
-		//		EndDialog(hDlg, LOWORD(wParam));
-		//		return (INT_PTR)TRUE;
-		//	}
-		//	break;
 		} // eof switch
 		break;
 	} // eof switch
@@ -325,16 +319,83 @@ INT_PTR CALLBACK Login(HWND hDlg
 	, LPARAM lParam
 )
 {
+	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
+
 	switch (uMsg)
 	{
 	case WM_INITDIALOG:
+		// necessary for the message loop to find this dialog, when found
+		// the message pump can dispatch messages to this dialog
+		SetWindowText(hDlg, L"Login");
 		return (INT_PTR)TRUE;
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+	case WM_COMMAND: {
+		const int BUFF_MAX = 128;
+		PWCHAR pszBuffUEA = new WCHAR[BUFF_MAX];	// UEA = UserEmailAddress
+		PWCHAR pszBuffUP = new WCHAR[BUFF_MAX];		// UP = UserPassword
+		switch (LOWORD(wParam))
 		{
+		case IDC_BTN_FORGOTPASSWORD:
+			OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
+			EndDialog(hDlg, LOWORD(wParam));
+			DialogBox(hInst
+				, MAKEINTRESOURCE(IDD_FORGOTPASSWORDBOX)
+				, hDlg
+				, ForgotPassword
+			);
+			return (INT_PTR)TRUE;
+		case IDC_BTN_SUBMIT:
+			OutputDebugString(L"IDC_BTN_SUBMIT\n");
+			GetDlgItemText(hDlg
+				, IDC_EDT_UEA
+				, pszBuffUEA
+				, BUFF_MAX
+			);
+			GetDlgItemText(hDlg
+				, IDC_EDT_UP
+				, pszBuffUP
+				, BUFF_MAX
+			);
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
-		}
+		case IDCANCEL:
+			OutputDebugString(L"IDCANCEL\n");
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		} // eof switch
+		break;
+	} // eof WM_COMMAND
+	} // eof switch
+
+	return (INT_PTR)FALSE;
+}
+
+//****************************************************************************
+//*                     ForgotPassword
+//****************************************************************************
+INT_PTR CALLBACK ForgotPassword(HWND hDlg
+	, UINT uMsg
+	, WPARAM wParam
+	, LPARAM lParam
+)
+{
+	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
+
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+		// necessary for the message loop to find this dialog, when found
+		// the message pump can dispatch messages to this dialog
+		SetWindowText(hDlg, L"ForgotPassword");
+		return (INT_PTR)TRUE;
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDCANCEL:
+			OutputDebugString(L"IDCANCEL\n");
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		} // eof switch
+		break;
 	} // eof switch
 
 	return (INT_PTR)FALSE;

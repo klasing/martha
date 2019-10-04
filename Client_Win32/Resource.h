@@ -16,9 +16,15 @@
 #define IDC_BTN_LOGIN				30010
 #define IDC_BTN_REGISTER			30011
 #define IDC_BTN_FORGOTPASSWORD		30012
+#define IDC_BTN_SUBMIT				30013
+#define IDC_EDT_UEA					30014	// UEA = UserEmailAddress
+#define IDC_EDT_UP					30015	// UP = UserPassword
+#define IDC_EDT_UC					30016	// UC = UserCode
+#define IDC_BTN_SUBMIT_UC			30017
 
 #define IDD_ABOUTBOX				30021
 #define IDD_LOGINBOX				30022
+#define IDD_FORGOTPASSWORDBOX		30023
 
 #define IDI_CLIENTWIN32				30031
 #define IDI_SMALL					30032
