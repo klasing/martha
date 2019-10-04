@@ -74,6 +74,11 @@ wWinMain(_In_ HINSTANCE hInstance
 	MSG msg;
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
+		// necessary to convey a WM_COMMAND message,
+		// containing a (...) message,
+		// to the concerning dialog
+		if (IsDialogMessage(FindWindow(NULL, L"DlgProc"), &msg))
+			continue;
 		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
 		{
 			TranslateMessage(&msg);
@@ -273,10 +278,32 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 	} // eof WM_CTLCOLORSTATIC
 	case WM_SIZE:
 		oGroupBoxConnect.SetGroupBox(hWndConnect, 10, 20, 165, 110);
-		oGroupBoxAccess.SetGroupBox(hWndAccess, 185, 20, 100, 50);
+		oGroupBoxAccess.SetGroupBox(hWndAccess, 185, 20, 105, 110);
 		//oGroupBox.SetGroupBox(hWndDownload, 120, 20, 100, 50);
 		//oGroupBox.SetGroupBox(hWndUpload, 120, 80, 100, 50);
 		return TRUE;
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDC_BTN_LOGIN:
+			OutputDebugString(L"IDC_BTN_LOGIN\n");
+			DialogBox(hInst
+				, MAKEINTRESOURCE(IDD_LOGINBOX)
+				, hDlg
+				, DlgProc
+			);
+			break;
+		case IDC_BTN_REGISTER:
+			OutputDebugString(L"IDC_BTN_REGISTER\n");
+			break;
+		//case IDC_BTN_FORGOTPASSWORD:
+		//	OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
+		//	break;
+		case IDOK:
+			OutputDebugString(L"IDOK\n");
+			break;
+		} // eof switch
+		break;
 	} // eof switch
 
 	return (INT_PTR)FALSE;
