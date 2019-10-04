@@ -9,14 +9,18 @@
 #define IDC_GB_ACCESS				30006
 #define IDC_GB_DOWNLOAD				30007
 #define IDC_GB_UPLOAD				30008
+#define IDC_EDT_DOMAIN				30009
+#define IDC_EDT_HOST				30009
+#define IDC_EDT_PORT				30009
+#define IDC_EDT_HTTP				30009
 
-#define IDD_ABOUTBOX				30011
+#define IDD_ABOUTBOX				30021
 
-#define IDI_CLIENTWIN32				30021
-#define IDI_SMALL					30022
+#define IDI_CLIENTWIN32				30031
+#define IDI_SMALL					30032
 
-#define IDM_ABOUT					30031
-#define IDM_EXIT					30035
+#define IDM_ABOUT					30041
+#define IDM_EXIT					30045
 
 #define IDS_APP_TITLE				30051
 #define IDS_WINDOWCLASS				30052

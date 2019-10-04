@@ -7,11 +7,12 @@ public:
 	HWND createGroupBox(const HINSTANCE& hInst
 		, const HWND& hWnd
 		, const int& resourceId
+		, const PWCHAR& pszTitle
 	)
 	{
 		// create groupbox
 		HWND hWndGB = CreateWindow(L"BUTTON"
-			, L"Connect"
+			, pszTitle
 			, WS_CHILD | BS_GROUPBOX
 			, 0, 0, 0, 0
 			, hWnd

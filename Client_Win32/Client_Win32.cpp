@@ -241,16 +241,20 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 	static HWND hWndConnect, hWndAccess, hWndDownload, hWndUpload;
 	static GroupBox oGroupBox;
 	static GroupBoxConnect oGroupBoxConnect;
+	static GroupBoxAccess oGroupBoxAccess;
 
 	switch (uMsg)
 	{
 	case WM_INITDIALOG:
 		// create groupbox
-		hWndConnect = oGroupBoxConnect.createGroupBoxConnect(hInst
+		hWndConnect = oGroupBoxConnect.createGroupBox(hInst
 			, hDlg
 			, IDC_GB_CONNECT
 		);
-		//hWndAccess = oGroupBox.createGroupBox(hInst, hWnd, IDC_GB_ACCESS);
+		hWndAccess = oGroupBoxAccess.createGroupBox(hInst
+			, hDlg
+			, IDC_GB_ACCESS
+		);
 		//hWndDownload = oGroupBox.createGroupBox(hInst, hWnd, IDC_GB_DOWNLOAD);
 		//hWndUpload = oGroupBox.createGroupBox(hInst, hWnd, IDC_GB_UPLOAD);
 		return (INT_PTR)TRUE;
@@ -268,8 +272,8 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 		return (INT_PTR)hBrush;
 	} // eof WM_CTLCOLORSTATIC
 	case WM_SIZE:
-		oGroupBoxConnect.SetGroupBoxConnect(hWndConnect, 10, 20, 100, 50);
-		//oGroupBox.SetGroupBox(hWndAccess, 10, 80, 100, 50);
+		oGroupBoxConnect.SetGroupBox(hWndConnect, 10, 20, 165, 110);
+		oGroupBoxAccess.SetGroupBox(hWndAccess, 185, 20, 100, 50);
 		//oGroupBox.SetGroupBox(hWndDownload, 120, 20, 100, 50);
 		//oGroupBox.SetGroupBox(hWndUpload, 120, 80, 100, 50);
 		return TRUE;
