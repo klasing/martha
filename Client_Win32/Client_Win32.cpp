@@ -24,6 +24,7 @@ BOOL				InitInstance(HINSTANCE, const int&, const PWCHAR&, const PWCHAR&);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	DlgProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK	Login(HWND, UINT, WPARAM, LPARAM);
 
 // http_client_async function (runs in a WIN32-Thread)
 DWORD WINAPI		http_client_async(LPVOID);
@@ -290,7 +291,7 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 			DialogBox(hInst
 				, MAKEINTRESOURCE(IDD_LOGINBOX)
 				, hDlg
-				, DlgProc
+				, Login
 			);
 			break;
 		case IDC_BTN_REGISTER:
@@ -299,15 +300,46 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 		//case IDC_BTN_FORGOTPASSWORD:
 		//	OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
 		//	break;
-		case IDOK:
-			OutputDebugString(L"IDOK\n");
-			break;
+		//case IDOK:
+		//case IDCANCEL:
+		//	OutputDebugString(L"IDOK\n");
+		//	if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		//	{
+		//		EndDialog(hDlg, LOWORD(wParam));
+		//		return (INT_PTR)TRUE;
+		//	}
+		//	break;
 		} // eof switch
 		break;
 	} // eof switch
 
 	return (INT_PTR)FALSE;
 }
+
+//****************************************************************************
+//*                     Login
+//****************************************************************************
+INT_PTR CALLBACK Login(HWND hDlg
+	, UINT uMsg
+	, WPARAM wParam
+	, LPARAM lParam
+)
+{
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		}
+	} // eof switch
+
+	return (INT_PTR)FALSE;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 //// Client_Win32.cpp : Defines the entry point for the application.
