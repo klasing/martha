@@ -78,12 +78,12 @@ public:
 		// the x- and y-position of the groupbox
 		SetWindowPos(hWndBtnLogin
 			, HWND_TOP
-			, 5 + x, 25 + y, 70, 20
+			, 15 + x, 25 + y, 70, 20
 			, SWP_SHOWWINDOW);
 
 		SetWindowPos(hWndBtnRegister
 			, HWND_TOP
-			, 5 + x, 50 + y, 70, 20
+			, 15 + x, 50 + y, 70, 20
 			, SWP_SHOWWINDOW);
 
 		//SetWindowPos(hWndBtnForgotPassword
