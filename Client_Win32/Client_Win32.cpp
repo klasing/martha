@@ -7,6 +7,12 @@
 //****************************************************************************
 //*                     typedef
 //****************************************************************************
+typedef struct tagSTRUCTDLG {
+	HWND hDlg = NULL;
+	PWCHAR pszUEA = nullptr;	
+	PWCHAR pszUP = nullptr;
+	PWCHAR pszUC = nullptr;
+} STRUCTDLG, *PSTRUCTDLG;
 
 //****************************************************************************
 //*                     global
@@ -339,6 +345,12 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 		break;
 	case IDM_FORGOTPASSWORD:
 		OutputDebugString(L"***IDM_FORGOTPASSWORD\n");
+		DialogBoxParam(hInst
+			, L"MODALWINDOW"//MAKEINTRESOURCE(IDD_FORGOTPASSWORDBOX)
+			, hDlg
+			, ForgotPasswordProc
+			, (LPARAM)hDlg
+		);
 		break;
 	} // eof switch
 
@@ -375,31 +387,31 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 		const int BUFF_MAX = 128;
 		PWCHAR pszBuffUEA = new WCHAR[BUFF_MAX];	// UEA = UserEmailAddress
 		PWCHAR pszBuffUP = new WCHAR[BUFF_MAX];		// UP = UserPassword
+		GetDlgItemText(hDlg
+			, IDC_EDT_UEA
+			, pszBuffUEA
+			, BUFF_MAX
+		);
+		GetDlgItemText(hDlg
+			, IDC_EDT_UP
+			, pszBuffUP
+			, BUFF_MAX
+		);
 		switch (LOWORD(wParam))
 		{
 		case IDC_BTN_FORGOTPASSWORD:
 			OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
 			SendMessage(hDlgParent, IDM_FORGOTPASSWORD, (WPARAM)0, (LPARAM)0);
 			EndDialog(hDlg, LOWORD(wParam));
-			DialogBoxParam(hInst
-				, L"MODALWINDOW"//MAKEINTRESOURCE(IDD_FORGOTPASSWORDBOX)
-				, hDlg
-				, ForgotPasswordProc
-				, (LPARAM)hDlg
-			);
+			//DialogBoxParam(hInst
+			//	, L"MODALWINDOW"//MAKEINTRESOURCE(IDD_FORGOTPASSWORDBOX)
+			//	, hDlg
+			//	, ForgotPasswordProc
+			//	, (LPARAM)hDlg
+			//);
 			return (INT_PTR)TRUE;
 		case IDC_BTN_SUBMIT:
 			OutputDebugString(L"IDC_BTN_SUBMIT\n");
-			GetDlgItemText(hDlg
-				, IDC_EDT_UEA
-				, pszBuffUEA
-				, BUFF_MAX
-			);
-			GetDlgItemText(hDlg
-				, IDC_EDT_UP
-				, pszBuffUP
-				, BUFF_MAX
-			);
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
 		case IDCANCEL:
