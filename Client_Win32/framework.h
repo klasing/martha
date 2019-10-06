@@ -19,7 +19,8 @@
 #include <CommCtrl.h>
 
 // C RunTime Header Files
-#include <stdlib.h>
 #include <malloc.h>
 #include <memory.h>
+#include <stdlib.h>
+#include <string>
 #include <tchar.h>
