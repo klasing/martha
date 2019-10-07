@@ -14,6 +14,9 @@
 // Windows Header Files
 #include <windows.h>
 #include <windowsx.h>
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 // an easy way to add the common control library
 #pragma comment(lib, "comctl32.lib")
 #include <CommCtrl.h>

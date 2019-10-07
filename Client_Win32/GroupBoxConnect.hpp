@@ -125,21 +125,21 @@ public:
 			, (WPARAM)GetStockObject(DEFAULT_GUI_FONT)
 			, (LPARAM)0
 		);
-		hWndEdtHttp = CreateWindow(L"EDIT"
-			, L"1.1"
-			, WS_CHILD //| WS_BORDER
-			, 0, 0, 0, 0
-			, hDlg
-			, (HMENU)IDC_EDT_HTTP
-			, hInst
-			, NULL
-		);
-		// set font on static
-		SendMessage(hWndEdtHttp
-			, WM_SETFONT
-			, (WPARAM)GetStockObject(DEFAULT_GUI_FONT)
-			, (LPARAM)0
-		);
+		//hWndEdtHttp = CreateWindow(L"EDIT"
+		//	, L"1.1"
+		//	, WS_CHILD //| WS_BORDER
+		//	, 0, 0, 0, 0
+		//	, hDlg
+		//	, (HMENU)IDC_EDT_HTTP_VERSION
+		//	, hInst
+		//	, NULL
+		//);
+		//// set font on static
+		//SendMessage(hWndEdtHttp
+		//	, WM_SETFONT
+		//	, (WPARAM)GetStockObject(DEFAULT_GUI_FONT)
+		//	, (LPARAM)0
+		//);
 		return hWndGroupBoxConnect;
 	}
 	int SetGroupBox(const HWND hWnd
