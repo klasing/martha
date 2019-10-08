@@ -9,7 +9,13 @@
 //****************************************************************************
 typedef struct tagSTRUCTDLG {
 	HWND hWnd = NULL;
-	PWCHAR pszUEA = nullptr;	
+	PWCHAR pszDomain = nullptr;
+	PWCHAR pszHost = nullptr;
+	PWCHAR pszPort = nullptr;
+	int HttpVersion = 0;
+	BOOL bConnected = FALSE;
+	BOOL bLoggedin = FALSE;
+	PWCHAR pszUEA = nullptr;
 	PWCHAR pszUP = nullptr;
 	PWCHAR pszUC = nullptr;
 } STRUCTDLG, *PSTRUCTDLG;
@@ -32,8 +38,10 @@ INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	ConnectProc(HWND, UINT, WPARAM, LPARAM);
 //INT_PTR CALLBACK	DlgProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	LoginProc(HWND, UINT, WPARAM, LPARAM);
-//INT_PTR CALLBACK	ForgotPasswordProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK	ForgotPasswordProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	RegisterProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK	DownloadProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK	UploadProc(HWND, UINT, WPARAM, LPARAM);
 VOID set_window_login(const HWND&
 	, const HINSTANCE&
 	, const BOOL&
@@ -105,13 +113,12 @@ wWinMain(_In_ HINSTANCE hInstance
 		// necessary to convey a WM_COMMAND message,
 		// containing a (...) message,
 		// to the concerning dialog
-		//if (IsDialogMessage(FindWindow(NULL, L"DlgProc"), &msg)
-		//	|| IsDialogMessage(FindWindow(NULL, L"Login"), &msg)
-		//	|| IsDialogMessage(FindWindow(NULL, L"Forgot Password"), &msg)
-		//	|| IsDialogMessage(FindWindow(NULL, L"Register"), &msg))
-		//	continue;
-		if (IsDialogMessage(FindWindow(NULL, L"ConnectProc"), &msg)
-			|| IsDialogMessage(FindWindow(NULL, L"Register"), &msg))
+		if (IsDialogMessage(FindWindow(NULL, L"Connect"), &msg)
+			|| IsDialogMessage(FindWindow(NULL, L"Login"), &msg)
+			|| IsDialogMessage(FindWindow(NULL, L"Forgot Password"), &msg)
+			|| IsDialogMessage(FindWindow(NULL, L"Register"), &msg)
+			|| IsDialogMessage(FindWindow(NULL, L"Download"), &msg)
+			|| IsDialogMessage(FindWindow(NULL, L"Upload"), &msg))
 			continue;
 		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
 		{
@@ -238,6 +245,12 @@ LRESULT CALLBACK WndProc(HWND hWnd
 			break;
 		case IDM_FORGOTPASSWORD:
 			OutputDebugString(L"IDM_FORGOTPASSWORD [WndProc]\n");
+			DialogBoxParam(hInst
+				, L"MODALWINDOW"
+				, hWnd
+				, ForgotPasswordProc
+				, (LPARAM)pStructDlg
+			);
 			break;
 		case IDM_REGISTER:
 			OutputDebugString(L"IDM_REGISTER\n");
@@ -250,9 +263,21 @@ LRESULT CALLBACK WndProc(HWND hWnd
 			break;
 		case IDM_DOWNLOAD:
 			OutputDebugString(L"IDM_DOWNLOAD\n");
+			DialogBoxParam(hInst
+				, L"MODALWINDOW"
+				, hWnd
+				, DownloadProc
+				, (LPARAM)pStructDlg
+			);
 			break;
 		case IDM_UPLOAD:
 			OutputDebugString(L"IDM_UPLOAD\n");
+			DialogBoxParam(hInst
+				, L"MODALWINDOW"
+				, hWnd
+				, UploadProc
+				, (LPARAM)pStructDlg
+			);
 			break;
 		case IDM_ABOUT:
 			DialogBox(hInst
@@ -343,7 +368,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, hDlg
 			, IDC_STATIC
 			, hInst
-			, 75, 30, 65, 18
+			, 75, 30, 65, 16
 		);
 		helper_for_render_control((std::string)"edit"
 			, (PWCHAR)L"www.localhost.com"
@@ -351,7 +376,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, hDlg
 			, IDC_EDT_DOMAIN
 			, hInst
-			, 140, 30, 230, 18
+			, 140, 30, 230, 16
 		);
 
 		helper_for_render_control((std::string)"static"
@@ -360,7 +385,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, hDlg
 			, IDC_STATIC
 			, hInst
-			, 75, 50, 65, 18
+			, 75, 50, 65, 16
 		);
 		helper_for_render_control((std::string)"edit"
 			, (PWCHAR)L"192.168.178.14"
@@ -368,7 +393,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, hDlg
 			, IDC_EDT_DOMAIN
 			, hInst
-			, 140, 50, 230, 18
+			, 140, 50, 230, 16
 		);
 
 		helper_for_render_control((std::string)"static"
@@ -377,7 +402,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, hDlg
 			, IDC_STATIC
 			, hInst
-			, 75, 70, 65, 18
+			, 75, 70, 65, 16
 		);
 		helper_for_render_control((std::string)"edit"
 			, (PWCHAR)L"8080"
@@ -385,7 +410,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, hDlg
 			, IDC_EDT_PORT
 			, hInst
-			, 140, 70, 230, 18
+			, 140, 70, 230, 16
 		);
 
 		helper_for_render_control((std::string)"static"
@@ -394,7 +419,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, hDlg
 			, IDC_STATIC
 			, hInst
-			, 75, 94, 65, 18
+			, 75, 94, 65, 16
 		);
 		HWND hWndCbHttpVersion =
 			helper_for_render_control((std::string)"combobox"
@@ -445,7 +470,8 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 		{
 		case IDC_BTN_CONNECT:
 			OutputDebugString(L"IDC_BTN_CONNECT\n");
-			break;
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
 		case IDCANCEL:
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
@@ -607,12 +633,25 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 		{
 		case IDC_BTN_FORGOTPASSWORD:
 			OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
+			// load pStructDlg with UEA and UP data
+			pStructDlg->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
+			pStructDlg->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
+			GetDlgItemText(hDlg
+				, IDC_EDT_UEA
+				, pStructDlg->pszUEA
+				, BUFFER_MAX
+			);
+			GetDlgItemText(hDlg
+				, IDC_EDT_UP
+				, pStructDlg->pszUP
+				, BUFFER_MAX
+			);
+			EndDialog(hDlg, LOWORD(wParam));
 			SendMessage(pStructDlg->hWnd
 				, WM_COMMAND
 				, (WPARAM)IDM_FORGOTPASSWORD
 				, (LPARAM)0
 			);
-			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
 		case IDC_BTN_SUBMIT:
 			OutputDebugString(L"IDC_BTN_SUBMIT\n");
@@ -644,7 +683,7 @@ VOID set_window_login(const HWND& hDlg
 		, hDlg
 		, IDC_STATIC
 		, hInst
-		, 75, 30, 95, 18
+		, 75, 30, 95, 16
 	);
 	helper_for_render_control((std::string)"edit"
 		, (PWCHAR)L""
@@ -652,7 +691,7 @@ VOID set_window_login(const HWND& hDlg
 		, hDlg
 		, IDC_EDT_UEA
 		, hInst
-		, 170, 30, 200, 18
+		, 170, 30, 200, 16
 	);
 
 	helper_for_render_control((std::string)"static"
@@ -661,15 +700,15 @@ VOID set_window_login(const HWND& hDlg
 		, hDlg
 		, IDC_STATIC
 		, hInst
-		, 75, 50, 95, 18
+		, 75, 50, 95, 16
 	);
 	helper_for_render_control((std::string)"edit"
 		, (PWCHAR)L""
 		, ES_PASSWORD
 		, hDlg
-		, IDC_EDT_DOMAIN
+		, IDC_EDT_UP
 		, hInst
-		, 170, 50, 200, 18
+		, 170, 50, 200, 16
 	);
 
 	if (bLogin)
@@ -707,53 +746,76 @@ VOID set_window_login(const HWND& hDlg
 //****************************************************************************
 //*                     ForgotPasswordProc
 //****************************************************************************
-//INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
-//	, UINT uMsg
-//	, WPARAM wParam
-//	, LPARAM lParam
-//)
-//{
-//	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-//	static PSTRUCTDLG pStructDlg;
-//	static HWND hWnd;
-//
-//	switch (uMsg)
-//	{
-//	case WM_INITDIALOG:
-//	{
-//		// enables communication with parent dialog
-//		pStructDlg = (PSTRUCTDLG)lParam;
-//		// necessary for the message loop to find this dialog, when found
-//		// the message pump can dispatch messages to this dialog
-//		SetWindowText(hDlg, L"Forgot Password");
+INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
+	, UINT uMsg
+	, WPARAM wParam
+	, LPARAM lParam
+)
+{
+	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
+	static PSTRUCTDLG pStructDlg;
+	static HWND hWnd;
+
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+	{
+		// enables communication with parent dialog
+		pStructDlg = (PSTRUCTDLG)lParam;
+		// necessary for the message loop to find this dialog, when found
+		// the message pump can dispatch messages to this dialog
+		SetWindowText(hDlg, L"Forgot Password");
 //		set_window_with_user_code(hDlg
 //			, hInst
 //			, 0, 0, 410, 300
 //			, SWP_NOMOVE
 //		);
-//		return (INT_PTR)TRUE;
-//	} // eof WM_INITDIALOG
-//	case WM_COMMAND:
-//		switch (LOWORD(wParam))
-//		{
-//		case IDC_BTN_SUBMIT:
-//			OutputDebugString(L"IDC_BTN_SUBMIT [ForgotPasswordProc]\n");
-//			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT), FALSE);
-//			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT_UC), TRUE);
-//			break;
-//		case IDC_BTN_SUBMIT_UC:
-//			EndDialog(hDlg, LOWORD(wParam));
-//			break;
-//		case IDCANCEL:
-//			OutputDebugString(L"IDCANCEL\n");
-//			EndDialog(hDlg, LOWORD(wParam));
-//			return (INT_PTR)TRUE;
-//		} // eof switch
-//		break;
-//	} // eof switch
-//
-//	return (INT_PTR)FALSE;
-//}
+		POINT point;
+		point.x = 0;
+		point.y = 0;
+		ClientToScreen(pStructDlg->hWnd, &point);
+		SetWindowPos(hDlg
+			, HWND_TOP
+			, point.x
+			, point.y
+			, 420, 250
+			, SWP_SHOWWINDOW
+		);
+		set_window_with_user_code(hDlg
+			, hInst
+		);
+		// load data for UEA and UP, set by the user in the LoginProc
+		SetDlgItemText(hDlg
+			, IDC_EDT_UEA
+			, pStructDlg->pszUEA
+		);
+		SetDlgItemText(hDlg
+			, IDC_EDT_UP
+			, pStructDlg->pszUP
+		);
+		return (INT_PTR)TRUE;
+	} // eof WM_INITDIALOG
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDC_BTN_SUBMIT:
+			OutputDebugString(L"IDC_BTN_SUBMIT [ForgotPasswordProc]\n");
+			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT), FALSE);
+			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT_UC), TRUE);
+			break;
+		case IDC_BTN_SUBMIT_UC:
+			EndDialog(hDlg, LOWORD(wParam));
+			break;
+		case IDCANCEL:
+			OutputDebugString(L"IDCANCEL\n");
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		} // eof switch
+		break;
+	} // eof switch
+
+	return (INT_PTR)FALSE;
+}
 
 //****************************************************************************
 //*                     RegisterProc
@@ -790,7 +852,7 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 			, HWND_TOP
 			, point.x
 			, point.y
-			, 420, 190
+			, 420, 250
 			, SWP_SHOWWINDOW
 		);
 		set_window_with_user_code(hDlg
@@ -801,14 +863,14 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
-//		case IDC_BTN_SUBMIT:
-//			OutputDebugString(L"IDC_BTN_SUBMIT [RegisterProc]\n");
-//			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT), FALSE);
-//			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT_UC), TRUE);
-//			break;
-//		case IDC_BTN_SUBMIT_UC:
-//			EndDialog(hDlg, LOWORD(wParam));
-//			break;
+		case IDC_BTN_SUBMIT:
+			OutputDebugString(L"IDC_BTN_SUBMIT [RegisterProc]\n");
+			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT), FALSE);
+			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT_UC), TRUE);
+			break;
+		case IDC_BTN_SUBMIT_UC:
+			EndDialog(hDlg, LOWORD(wParam));
+			break;
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL [RegisterProc]\n");
 			EndDialog(hDlg, LOWORD(wParam));
@@ -831,32 +893,32 @@ VOID set_window_with_user_code(const HWND& hDlg
 		, hInst
 		// no bool, no render forgot password
 	);
-//	helper_for_render_control((std::string)"static"
-//		, (PWCHAR)L"Enter the code received by email"
-//		, 0
-//		, hDlg
-//		, IDC_STATIC
-//		, hInst
-//		, 75, 110, 200, 16
-//	);
-//	HWND hWndEdtUC =
-//		helper_for_render_control((std::string)"edit"
-//			, (PWCHAR)L""
-//			, 0
-//			, hDlg
-//			, IDC_EDT_UP
-//			, hInst
-//			, 170, 130, 200, 16
-//		);
-//	HWND hWndBtnSubmitUC =
-//		helper_for_render_control((std::string)"button"
-//			, (PWCHAR)L"Submit"
-//			, WS_DISABLED
-//			, hDlg
-//			, IDC_BTN_SUBMIT_UC
-//			, hInst
-//			, 300, 155, 70, 22
-//		);
+	helper_for_render_control((std::string)"static"
+		, (PWCHAR)L"Enter the code received by email"
+		, 0
+		, hDlg
+		, IDC_STATIC
+		, hInst
+		, 75, 110, 180, 16
+	);
+	HWND hWndEdtUC =
+		helper_for_render_control((std::string)"edit"
+			, (PWCHAR)L""
+			, 0
+			, hDlg
+			, IDC_EDT_UC
+			, hInst
+			, 170, 130, 200, 16
+		);
+	HWND hWndBtnSubmitUC =
+		helper_for_render_control((std::string)"button"
+			, (PWCHAR)L"Submit"
+			, WS_DISABLED
+			, hDlg
+			, IDC_BTN_SUBMIT_UC
+			, hInst
+			, 300, 160, 70, 22
+		);
 }
 
 //****************************************************************************
@@ -909,6 +971,204 @@ HWND& helper_for_render_control(std::string typeControl
 	delete[] lpClassName;
 
 	return hWnd;
+}
+
+//****************************************************************************
+//*                     DownloadProc
+//****************************************************************************
+INT_PTR CALLBACK DownloadProc(HWND hDlg
+	, UINT uMsg
+	, WPARAM wParam
+	, LPARAM lParam
+)
+{
+	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
+	static PSTRUCTDLG pStructDlg;
+
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+	{
+		OutputDebugString(L"WM_INITDIALOG [DownloadProc]\n");
+		// enables communication with parent dialog
+		pStructDlg = (PSTRUCTDLG)lParam;
+		// necessary for the message loop to find this dialog, when found
+		// the message pump can dispatch messages to this dialog
+		SetWindowText(hDlg, L"Download");
+		POINT point;
+		point.x = 0;
+		point.y = 0;
+		ClientToScreen(pStructDlg->hWnd, &point);
+		SetWindowPos(hDlg
+			, HWND_TOP
+			, point.x
+			, point.y
+			, 420, 190
+			, SWP_SHOWWINDOW
+		);
+		helper_for_render_control((std::string)"static"
+			, (PWCHAR)L"File name on server"
+			, 0
+			, hDlg
+			, IDC_STATIC
+			, hInst
+			, 75, 30, 95, 16
+		);
+		helper_for_render_control((std::string)"edit"
+			, (PWCHAR)L""
+			, 0
+			, hDlg
+			, IDC_EDT_TARGET_FILE
+			, hInst
+			, 170, 30, 200, 16
+		);
+
+		helper_for_render_control((std::string)"static"
+			, (PWCHAR)L"File name on client"
+			, 0
+			, hDlg
+			, IDC_STATIC
+			, hInst
+			, 75, 50, 95, 16
+		);
+		helper_for_render_control((std::string)"edit"
+			, (PWCHAR)L""
+			, 0
+			, hDlg
+			, IDC_EDT_DESTINATION_FILE
+			, hInst
+			, 170, 50, 200, 16
+		);
+		HWND hWndBtnTransfer =
+			helper_for_render_control((std::string)"button"
+				, (PWCHAR)L"Transfer"
+				, WS_DISABLED
+				, hDlg
+				, IDC_BTN_TRANSFER
+				, hInst
+				, 300, 80, 70, 22
+			);
+		helper_for_render_control((std::string)"static"
+			, (PWCHAR)L""//(PWCHAR)L"Please login first."
+			, 0
+			, hDlg
+			, IDC_STATIC
+			, hInst
+			, 75, 110, 180, 16
+		);
+		return (INT_PTR)TRUE;
+	} // eof WM_INITDIALOG
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDCANCEL:
+			OutputDebugString(L"IDCANCEL [DownloadProc]\n");
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		} // eof switch
+		break;
+	} // eof switch
+
+	return (INT_PTR)FALSE;
+}
+
+//****************************************************************************
+//*                     UploadProc
+//****************************************************************************
+INT_PTR CALLBACK UploadProc(HWND hDlg
+	, UINT uMsg
+	, WPARAM wParam
+	, LPARAM lParam
+)
+{
+	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
+	static PSTRUCTDLG pStructDlg;
+
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+	{
+		OutputDebugString(L"WM_INITDIALOG [UploadProc]\n");
+		// enables communication with parent dialog
+		pStructDlg = (PSTRUCTDLG)lParam;
+		// necessary for the message loop to find this dialog, when found
+		// the message pump can dispatch messages to this dialog
+		SetWindowText(hDlg, L"Upload");
+		POINT point;
+		point.x = 0;
+		point.y = 0;
+		ClientToScreen(pStructDlg->hWnd, &point);
+		SetWindowPos(hDlg
+			, HWND_TOP
+			, point.x
+			, point.y
+			, 420, 190
+			, SWP_SHOWWINDOW
+		);
+		helper_for_render_control((std::string)"static"
+			, (PWCHAR)L"File name on server"
+			, 0
+			, hDlg
+			, IDC_STATIC
+			, hInst
+			, 75, 30, 95, 16
+		);
+		helper_for_render_control((std::string)"edit"
+			, (PWCHAR)L""
+			, 0
+			, hDlg
+			, IDC_EDT_TARGET_FILE
+			, hInst
+			, 170, 30, 200, 16
+		);
+
+		helper_for_render_control((std::string)"static"
+			, (PWCHAR)L"File name on client"
+			, 0
+			, hDlg
+			, IDC_STATIC
+			, hInst
+			, 75, 50, 95, 16
+		);
+		helper_for_render_control((std::string)"edit"
+			, (PWCHAR)L""
+			, 0
+			, hDlg
+			, IDC_EDT_DESTINATION_FILE
+			, hInst
+			, 170, 50, 200, 16
+		);
+		HWND hWndBtnTransfer =
+			helper_for_render_control((std::string)"button"
+				, (PWCHAR)L"Transfer"
+				, WS_DISABLED
+				, hDlg
+				, IDC_BTN_TRANSFER
+				, hInst
+				, 300, 80, 70, 22
+			);
+		helper_for_render_control((std::string)"static"
+			, (PWCHAR)L""//(PWCHAR)L"Please login first"
+			, 0
+			, hDlg
+			, IDC_STATIC
+			, hInst
+			, 75, 110, 180, 16
+		);
+		return (INT_PTR)TRUE;
+	} // eof WM_INITDIALOG
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDCANCEL:
+			OutputDebugString(L"IDCANCEL [UploadProc]\n");
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		} // eof switch
+		break;
+	} // eof switch
+
+	return (INT_PTR)FALSE;
 }
 
 //////////////////////////////////////////////////////////////////////////////

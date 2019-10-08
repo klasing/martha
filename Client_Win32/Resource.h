@@ -22,6 +22,9 @@
 #define IDC_EDT_UP						30019	// UP = UserPassword
 #define IDC_EDT_UC						30020	// UC = UserCode
 #define IDC_BTN_SUBMIT_UC				30021
+#define IDC_EDT_TARGET_FILE				30022
+#define IDC_EDT_DESTINATION_FILE		30023
+#define IDC_BTN_TRANSFER				30024
 
 #define IDD_ABOUTBOX					30031
 
