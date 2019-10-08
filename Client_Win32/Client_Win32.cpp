@@ -7,7 +7,7 @@
 //****************************************************************************
 //*                     typedef
 //****************************************************************************
-typedef struct tagSTRUCTDLG {
+typedef struct tagSTRUCTCLIENT {
 	HWND hWnd = NULL;
 	PWCHAR pszDomain = nullptr;
 	PWCHAR pszHost = nullptr;
@@ -18,7 +18,8 @@ typedef struct tagSTRUCTDLG {
 	PWCHAR pszUEA = nullptr;
 	PWCHAR pszUP = nullptr;
 	PWCHAR pszUC = nullptr;
-} STRUCTDLG, *PSTRUCTDLG;
+	std::string mode = "";
+} STRUCTCLIENT, *PSTRUCTCLIENT;
 
 //****************************************************************************
 //*                     global
@@ -195,12 +196,13 @@ LRESULT CALLBACK WndProc(HWND hWnd
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static PSTRUCTDLG pStructDlg = new STRUCTDLG;
+	static PSTRUCTCLIENT pStructClient = new STRUCTCLIENT;
 	//static HWND hWndDlg;
 
 	switch (uMsg)
 	{
 	case WM_NCCREATE:
+	{
 		// create a status bar
 		oStatusBar.createStatusBar(hInst, hWnd);
 		//hWndDlg = CreateDialog(hInst
@@ -208,7 +210,21 @@ LRESULT CALLBACK WndProc(HWND hWnd
 		//	, hWnd
 		//	, DlgProc
 		//);
+
+		// testing for a connection, by sending a TRACE message
+		pStructClient->mode = "trace";
+		// start thread			
+		DWORD dwThreadID;
+		HANDLE hThread = CreateThread(NULL
+			, 0						// default stack size
+			, http_client_async		// thread function
+			, pStructClient			// argument to thread function
+			, 0						// default creation flags
+			, &dwThreadID			// returns the thread identifier
+		);
+
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
+	} // eof WM_NCCREATE
 	case WM_SIZE:
 		oStatusBar.SetStatusBar(hWnd);
 		//RECT rectClient;
@@ -220,7 +236,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 		//	, rectClient.right, rectClient.bottom - 22
 		//	, SWP_SHOWWINDOW
 		//);
-		pStructDlg->hWnd = hWnd;
+		pStructClient->hWnd = hWnd;
 		return 0;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
@@ -231,7 +247,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				, L"MODALWINDOW"
 				, hWnd
 				, ConnectProc
-				, (LPARAM)pStructDlg
+				, (LPARAM)pStructClient
 			);
 			break;
 		case IDM_LOGIN:
@@ -240,7 +256,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				, L"MODALWINDOW"
 				, hWnd
 				, LoginProc
-				, (LPARAM)pStructDlg
+				, (LPARAM)pStructClient
 			);
 			break;
 		case IDM_FORGOTPASSWORD:
@@ -249,7 +265,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				, L"MODALWINDOW"
 				, hWnd
 				, ForgotPasswordProc
-				, (LPARAM)pStructDlg
+				, (LPARAM)pStructClient
 			);
 			break;
 		case IDM_REGISTER:
@@ -258,7 +274,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				, L"MODALWINDOW"
 				, hWnd
 				, RegisterProc
-				, (LPARAM)pStructDlg
+				, (LPARAM)pStructClient
 			);
 			break;
 		case IDM_DOWNLOAD:
@@ -267,7 +283,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				, L"MODALWINDOW"
 				, hWnd
 				, DownloadProc
-				, (LPARAM)pStructDlg
+				, (LPARAM)pStructClient
 			);
 			break;
 		case IDM_UPLOAD:
@@ -276,7 +292,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				, L"MODALWINDOW"
 				, hWnd
 				, UploadProc
-				, (LPARAM)pStructDlg
+				, (LPARAM)pStructClient
 			);
 			break;
 		case IDM_ABOUT:
@@ -337,14 +353,14 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static PSTRUCTDLG pStructDlg;
+	static PSTRUCTCLIENT pStructClient;
 
 	switch (uMsg)
 	{
 	case WM_INITDIALOG:
 	{
 		// enables communication with parent dialog
-		pStructDlg = (PSTRUCTDLG)lParam;
+		pStructClient = (PSTRUCTCLIENT)lParam;
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Connect");
@@ -354,7 +370,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 		POINT point;
 		point.x = 0;
 		point.y = 0;
-		ClientToScreen(pStructDlg->hWnd, &point);
+		ClientToScreen(pStructClient->hWnd, &point);
 		SetWindowPos(hDlg
 			, HWND_TOP
 			, point.x//clientRect.left
@@ -587,20 +603,20 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static PSTRUCTDLG pStructDlg;
+	static PSTRUCTCLIENT pStructClient;
 
 	switch (uMsg)
 	{
 	case WM_INITDIALOG: {
 		// enables communication with parent dialog
-		pStructDlg = (PSTRUCTDLG)lParam;
+		pStructClient = (PSTRUCTCLIENT)lParam;
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Login");
 		POINT point;
 		point.x = 0;
 		point.y = 0;
-		ClientToScreen(pStructDlg->hWnd, &point);
+		ClientToScreen(pStructClient->hWnd, &point);
 		SetWindowPos(hDlg
 			, HWND_TOP
 			, point.x
@@ -634,20 +650,20 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 		case IDC_BTN_FORGOTPASSWORD:
 			OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
 			// load pStructDlg with UEA and UP data
-			pStructDlg->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
-			pStructDlg->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
+			pStructClient->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
+			pStructClient->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
 			GetDlgItemText(hDlg
 				, IDC_EDT_UEA
-				, pStructDlg->pszUEA
+				, pStructClient->pszUEA
 				, BUFFER_MAX
 			);
 			GetDlgItemText(hDlg
 				, IDC_EDT_UP
-				, pStructDlg->pszUP
+				, pStructClient->pszUP
 				, BUFFER_MAX
 			);
 			EndDialog(hDlg, LOWORD(wParam));
-			SendMessage(pStructDlg->hWnd
+			SendMessage(pStructClient->hWnd
 				, WM_COMMAND
 				, (WPARAM)IDM_FORGOTPASSWORD
 				, (LPARAM)0
@@ -753,7 +769,7 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static PSTRUCTDLG pStructDlg;
+	static PSTRUCTCLIENT pStructClient;
 	static HWND hWnd;
 
 	switch (uMsg)
@@ -761,7 +777,7 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 	case WM_INITDIALOG:
 	{
 		// enables communication with parent dialog
-		pStructDlg = (PSTRUCTDLG)lParam;
+		pStructClient = (PSTRUCTCLIENT)lParam;
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Forgot Password");
@@ -773,7 +789,7 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 		POINT point;
 		point.x = 0;
 		point.y = 0;
-		ClientToScreen(pStructDlg->hWnd, &point);
+		ClientToScreen(pStructClient->hWnd, &point);
 		SetWindowPos(hDlg
 			, HWND_TOP
 			, point.x
@@ -787,11 +803,11 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 		// load data for UEA and UP, set by the user in the LoginProc
 		SetDlgItemText(hDlg
 			, IDC_EDT_UEA
-			, pStructDlg->pszUEA
+			, pStructClient->pszUEA
 		);
 		SetDlgItemText(hDlg
 			, IDC_EDT_UP
-			, pStructDlg->pszUP
+			, pStructClient->pszUP
 		);
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
@@ -827,7 +843,7 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static PSTRUCTDLG pStructDlg;
+	static PSTRUCTCLIENT pStructClient;
 
 	switch (uMsg)
 	{
@@ -835,7 +851,7 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 	{
 		OutputDebugString(L"WM_INITDIALOG [RegisterProc]\n");
 		// enables communication with parent dialog
-		pStructDlg = (PSTRUCTDLG)lParam;
+		pStructClient = (PSTRUCTCLIENT)lParam;
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Register");
@@ -847,7 +863,7 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 		POINT point;
 		point.x = 0;
 		point.y = 0;
-		ClientToScreen(pStructDlg->hWnd, &point);
+		ClientToScreen(pStructClient->hWnd, &point);
 		SetWindowPos(hDlg
 			, HWND_TOP
 			, point.x
@@ -983,7 +999,7 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static PSTRUCTDLG pStructDlg;
+	static PSTRUCTCLIENT pStructClient;
 
 	switch (uMsg)
 	{
@@ -991,14 +1007,14 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 	{
 		OutputDebugString(L"WM_INITDIALOG [DownloadProc]\n");
 		// enables communication with parent dialog
-		pStructDlg = (PSTRUCTDLG)lParam;
+		pStructClient = (PSTRUCTCLIENT)lParam;
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Download");
 		POINT point;
 		point.x = 0;
 		point.y = 0;
-		ClientToScreen(pStructDlg->hWnd, &point);
+		ClientToScreen(pStructClient->hWnd, &point);
 		SetWindowPos(hDlg
 			, HWND_TOP
 			, point.x
@@ -1082,7 +1098,7 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static PSTRUCTDLG pStructDlg;
+	static PSTRUCTCLIENT pStructClient;
 
 	switch (uMsg)
 	{
@@ -1090,14 +1106,14 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 	{
 		OutputDebugString(L"WM_INITDIALOG [UploadProc]\n");
 		// enables communication with parent dialog
-		pStructDlg = (PSTRUCTDLG)lParam;
+		pStructClient = (PSTRUCTCLIENT)lParam;
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Upload");
 		POINT point;
 		point.x = 0;
 		point.y = 0;
-		ClientToScreen(pStructDlg->hWnd, &point);
+		ClientToScreen(pStructClient->hWnd, &point);
 		SetWindowPos(hDlg
 			, HWND_TOP
 			, point.x
@@ -1169,6 +1185,19 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 	} // eof switch
 
 	return (INT_PTR)FALSE;
+}
+
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace http = beast::http;           // from <boost/beast/http.hpp>
+namespace net = boost::asio;            // from <boost/asio.hpp>
+using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
+
+//****************************************************************************
+//*                     http_client_async
+//****************************************************************************
+DWORD WINAPI http_client_async(LPVOID lpVoid)
+{
+	return (DWORD)EXIT_SUCCESS;
 }
 
 //////////////////////////////////////////////////////////////////////////////

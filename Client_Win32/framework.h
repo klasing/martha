@@ -1,8 +1,13 @@
 // header.h : include file for standard system include files,
 // or project specific include files
 //
-
 #pragma once
+#define _WIN32_WINNT 0x0601
+#include <boost/asio/strand.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/beast/version.hpp>
+#include <boost/filesystem/fstream.hpp>
 
 // // Including SDKDDKVer.h defines the highest available Windows platform.
 // If you wish to build your application for a previous Windows platform, include WinSDKVer.h and
@@ -22,8 +27,11 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #include <CommCtrl.h>
 
 // C RunTime Header Files
+#include <cstdlib>
+#include <functional>
 #include <malloc.h>
 #include <memory.h>
 #include <stdlib.h>
 #include <string>
 #include <tchar.h>
+

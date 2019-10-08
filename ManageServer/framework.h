@@ -1,3 +1,6 @@
+// header.h : include file for standard system include files,
+// or project specific include files
+//
 #pragma once
 #define _WIN32_WINNT 0x0601
 #include <boost/algorithm/string.hpp>
