@@ -13,11 +13,12 @@ typedef struct tagSTRUCTCLIENT {
 	PWCHAR pszHost = nullptr;
 	PWCHAR pszPort = nullptr;
 	int HttpVersion = 0;
-	BOOL bConnected = FALSE;
-	BOOL bLoggedin = FALSE;
+	bool bConnected = false;
+	bool bLoggedin = false;
 	PWCHAR pszUEA = nullptr;
 	PWCHAR pszUP = nullptr;
 	PWCHAR pszUC = nullptr;
+	std::string target = "/";
 	std::string mode = "";
 } STRUCTCLIENT, *PSTRUCTCLIENT;
 
@@ -211,6 +212,18 @@ LRESULT CALLBACK WndProc(HWND hWnd
 		//	, DlgProc
 		//);
 
+		pStructClient->hWnd = hWnd;
+		pStructClient->pszHost = new WCHAR[BUFFER_MAX];
+		pStructClient->pszPort = new WCHAR[BUFFER_MAX];
+		wcscpy_s(pStructClient->pszHost
+			, wcslen(L"192.168.178.14") + 1
+			, L"192.168.178.14"
+		);
+		wcscpy_s(pStructClient->pszPort
+			, wcslen(L"8080") + 1
+			, L"8080"
+		);
+		pStructClient->HttpVersion = 11;
 		// testing for a connection, by sending a TRACE message
 		pStructClient->mode = "trace";
 		// start thread			
@@ -308,6 +321,18 @@ LRESULT CALLBACK WndProc(HWND hWnd
 		default:
 			return DefWindowProc(hWnd, uMsg, wParam, lParam);
 		} // eof switch
+		break;
+	case IDM_ALLDONE:
+		OutputDebugString(L"IDM_ALLDONE\n");
+		pStructClient = (PSTRUCTCLIENT)lParam;
+		if (pStructClient->bConnected)
+			oStatusBar.StatusBarSetText(0
+				, L"Connected to server"
+			);
+		else
+			oStatusBar.StatusBarSetText(0
+				, L"Can not connect to server"
+			);
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -1192,11 +1217,211 @@ namespace http = beast::http;           // from <boost/beast/http.hpp>
 namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
+//***************************************************************************
+//*                    global
+//***************************************************************************
+const int SECONDS_BEFORE_EXPIRING = 30;
+
+//****************************************************************************
+//*                     fail
+//****************************************************************************
+inline void
+fail(beast::error_code ec, char const* what)
+{
+	;// std::cerr << what << ": " << ec.message() << "\n";
+}
+
+//****************************************************************************
+//*                     session
+//****************************************************************************
+// Performs an HTTP GET and prints the response
+class session : public std::enable_shared_from_this<session>
+{
+	tcp::resolver resolver_;
+	beast::tcp_stream stream_;
+	beast::flat_buffer buffer_; // (Must persist between reads)
+	http::request<http::empty_body> req_with_empty_body_;
+	http::request<http::string_body> req_with_string_body_;
+	http::request<http::file_body> req_with_file_body_;
+	http::response<http::string_body> res_;
+	std::string mode_;
+	std::string target_;
+	std::string host_;
+	std::string port_;
+	int version_;
+	bool bConnected_ = false;
+	std::shared_ptr<std::string const> doc_root_;
+
+public:
+	// Objects are constructed with a strand to
+	// ensure that handlers do not execute concurrently.
+	explicit
+		session(net::io_context& ioc)
+		: resolver_(net::make_strand(ioc))
+		, stream_(net::make_strand(ioc))
+	{
+		OutputDebugString(L"<<constructor>> session()\n");
+		doc_root_ = std::make_shared<std::string>("./user_space");
+	}
+
+	// Start the asynchronous operation
+	void
+		run(char const* mode
+			, char const* target
+			, char const* host
+			, char const* port
+			, int version
+		)
+	{
+		mode_ = mode;
+		target_ = target;
+		host_ = host;
+		port_ = port;
+		version_ = version;
+
+		if (mode_ == "trace")
+		{
+			// Set up an HTTP TRACE request message
+			req_with_empty_body_.version(version_);
+			req_with_empty_body_.method(http::verb::trace);
+			req_with_empty_body_.target(target_);
+			req_with_empty_body_.set(http::field::host, host_);
+			req_with_empty_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+		}
+
+		// Look up the domain name
+		resolver_.async_resolve(
+			host_,
+			port_,
+			beast::bind_front_handler(
+				&session::on_resolve,
+				shared_from_this()));
+	}
+
+	void
+		on_resolve(
+			beast::error_code ec,
+			tcp::resolver::results_type results)
+	{
+		if (ec)
+			return fail(ec, "resolve");
+
+		// Set a timeout on the operation
+		stream_.expires_after(std::chrono::seconds(SECONDS_BEFORE_EXPIRING));
+
+		// Make the connection on the IP address we get from a lookup
+		stream_.async_connect(
+			results,
+			beast::bind_front_handler(
+				&session::on_connect,
+				shared_from_this()));
+	}
+
+	void
+		on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type)
+	{
+		if (ec)
+		{
+			return fail(ec, "connect");
+			bConnected_ = false;
+		}
+
+		// Set a timeout on the operation
+		stream_.expires_after(std::chrono::seconds(SECONDS_BEFORE_EXPIRING));
+
+		// Send the HTTP request to the remote host
+		if (mode_ == "trace")
+		{
+			http::async_write(stream_, req_with_empty_body_,
+				beast::bind_front_handler(
+					&session::on_write,
+					shared_from_this()));
+		}
+	}
+
+	void
+		on_write(
+			beast::error_code ec,
+			std::size_t bytes_transferred)
+	{
+		boost::ignore_unused(bytes_transferred);
+
+		if (ec)
+			return fail(ec, "write");
+
+		// Receive the HTTP response
+		http::async_read(stream_, buffer_, res_,
+			beast::bind_front_handler(
+				&session::on_read,
+				shared_from_this()));
+	}
+
+	void
+		on_read(
+			beast::error_code ec,
+			std::size_t bytes_transferred)
+	{
+		boost::ignore_unused(bytes_transferred);
+
+		if (ec)
+			return fail(ec, "read");
+
+		if (mode_ == "trace")
+			bConnected_ = true;
+			
+		// Gracefully close the socket
+		stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
+
+		// not_connected happens sometimes so don't bother reporting it.
+		if (ec && ec != beast::errc::not_connected)
+			return fail(ec, "shutdown");
+
+		// If we get here then the connection is closed gracefully
+	}
+};
+
 //****************************************************************************
 //*                     http_client_async
 //****************************************************************************
 DWORD WINAPI http_client_async(LPVOID lpVoid)
 {
+	PSTRUCTCLIENT pStructClient = (PSTRUCTCLIENT)lpVoid;
+	size_t convertedChars = 0;
+	size_t lenHost = wcslen(pStructClient->pszHost) + 1;
+	size_t lenPort = wcslen(pStructClient->pszPort) + 1;
+	char* host_ = new char[lenHost];
+	char* port_ = new char[lenPort];
+	wcstombs_s(&convertedChars, host_, lenHost, pStructClient->pszHost, _TRUNCATE);
+	wcstombs_s(&convertedChars, port_, lenPort, pStructClient->pszPort, _TRUNCATE);
+
+	auto const mode = pStructClient->mode.c_str();
+	auto const target = pStructClient->target.c_str();
+	auto const host = host_;
+	auto const port = port_;
+	int version = pStructClient->HttpVersion;
+
+	// The io_context is required for all I/O
+	net::io_context ioc;
+
+	// Launch the asynchronous operation
+	std::make_shared<session>(ioc)->run(mode
+		, target
+		, host
+		, port
+		, version
+	);
+
+	// Run the I/O service. The call will return when
+	// the get operation is complete.
+	ioc.run();
+
+	pStructClient->bConnected = true;
+	// so, this is the way to set a pointer into a LPARAM variable!!!
+	LPARAM lParam = (INT_PTR)pStructClient;
+	// send message to return to the default state,
+	SendMessage(((PSTRUCTCLIENT)lpVoid)->hWnd,
+		IDM_ALLDONE, (WPARAM)0, (LPARAM)lParam);
+
 	return (DWORD)EXIT_SUCCESS;
 }
 

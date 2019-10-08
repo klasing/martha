@@ -76,4 +76,14 @@ public:
 		ShowWindow(hWndStatus, SW_SHOWNORMAL);
 		return 0;
 	}
+	VOID StatusBarSetText(const int& part
+		, const wchar_t* pszText
+	)
+	{
+		SendMessage(hWndStatus
+			, SB_SETTEXT
+			, (WPARAM)part
+			, (LPARAM)pszText
+		);
+	}
 };

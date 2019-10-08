@@ -39,6 +39,7 @@
 #define IDM_EXIT						30056
 #define IDM_ABOUT						30057
 #define IDM_FORGOTPASSWORD				30058
+#define IDM_ALLDONE						30059
 
 #define IDS_APP_TITLE					30061
 #define IDS_WINDOWCLASS					30062
