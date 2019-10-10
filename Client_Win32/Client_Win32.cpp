@@ -913,16 +913,85 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
 	case WM_COMMAND:
+		// load pStructDlg with UEA, UP, and UC data
+		pStructClient->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
+		pStructClient->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
+		pStructClient->pszUC = new WCHAR[BUFFER_MAX];	// UC = UserCode
+		GetDlgItemText(hDlg
+			, IDC_EDT_UEA
+			, pStructClient->pszUEA
+			, BUFFER_MAX
+		);
+		GetDlgItemText(hDlg
+			, IDC_EDT_UP
+			, pStructClient->pszUP
+			, BUFFER_MAX
+		);
+		GetDlgItemText(hDlg
+			, IDC_EDT_UC
+			, pStructClient->pszUC
+			, BUFFER_MAX
+		);
+		// convert to char*
+		size_t convertedChars = 0;
+		size_t lenUEA = wcslen(pStructClient->pszUEA) + 1;
+		size_t lenUP = wcslen(pStructClient->pszUP) + 1;
+		size_t lenUC = wcslen(pStructClient->pszUC) + 1;
+		char* user_email_address_ = new char[lenUEA];
+		char* user_password_ = new char[lenUP];
+		char* user_code_ = new char[lenUC];
+		wcstombs_s(&convertedChars, user_email_address_, lenUEA, pStructClient->pszUEA, _TRUNCATE);
+		wcstombs_s(&convertedChars, user_password_, lenUP, pStructClient->pszUP, _TRUNCATE);
+		wcstombs_s(&convertedChars, user_code_, lenUC, pStructClient->pszUC, _TRUNCATE);
+
 		switch (LOWORD(wParam))
 		{
 		case IDC_BTN_SUBMIT:
+		{
 			OutputDebugString(L"IDC_BTN_SUBMIT [ForgotPasswordProc]\n");
+			pStructClient->mode = "access";
+			pStructClient->target = "/reset_password";
+			pStructClient->payload =
+				std::string("user_email_address=") +
+				user_email_address_ +
+				"&user_password=" +
+				user_password_;
+			// start thread			
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL
+				, 0						// default stack size
+				, http_client_async		// thread function
+				, pStructClient			// argument to thread function
+				, 0						// default creation flags
+				, &dwThreadID			// returns the thread identifier
+			);
 			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT), FALSE);
 			EnableWindow(GetDlgItem(hDlg, IDC_BTN_SUBMIT_UC), TRUE);
 			break;
+		} // eof IDC_BTN_SUBMIT
 		case IDC_BTN_SUBMIT_UC:
+		{
+			pStructClient->mode = "access";
+			pStructClient->target = "/reset_password_confirm";
+			pStructClient->payload =
+				std::string("user_email_address=") +
+				user_email_address_ +
+				"&user_password=" +
+				user_password_ +
+				"&confirmation_code=" +
+				user_code_;
+			// start thread			
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL
+				, 0						// default stack size
+				, http_client_async		// thread function
+				, pStructClient			// argument to thread function
+				, 0						// default creation flags
+				, &dwThreadID			// returns the thread identifier
+			);
 			EndDialog(hDlg, LOWORD(wParam));
 			break;
+		} // eof IDC_BTN_SUBMIT_UC
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL\n");
 			EndDialog(hDlg, LOWORD(wParam));
