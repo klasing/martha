@@ -4,7 +4,7 @@
 //****************************************************************************
 class StatusBar
 {
-	static const UINT cParts = 6;
+	static const UINT cParts = 3;
 	HWND hWndStatus = NULL;
 public:
 	VOID createStatusBar(const HINSTANCE& hInst

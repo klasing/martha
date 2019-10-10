@@ -23,7 +23,7 @@ public:
 			user_email_address) == 0)
 			;
 		else {
-			response_payload += "email address is unknown, try again.";
+			response_payload += "email address is unknown, try again";
 			return;
 		}
 		// check for correct user_password
@@ -33,11 +33,11 @@ public:
 			"user_password",
 			user_password) == 0)
 		{
-			response_payload += "succeeded.";
+			response_payload += "succeeded";
 			return;
 		}
 		else {
-			response_payload += "password is incorrect.";
+			response_payload += "password is incorrect";
 			return;
 		}
 	}

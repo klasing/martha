@@ -21,6 +21,7 @@ typedef struct tagSTRUCTCLIENT {
 	std::string target = "/";
 	std::string mode = "";
 	std::string payload = "";
+	std::string response_body;	// contains message from server
 } STRUCTCLIENT, *PSTRUCTCLIENT;
 
 //****************************************************************************
@@ -340,7 +341,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 		// the verb 'access' is used for the mode when a user logs in 
 		// to the server
 		if (pStructClient->mode == "access")
-			if (pStructClient->bConnected)
+			if (pStructClient->bLoggedin)
 			{
 				StringCchPrintf(pszTextBuffer
 					, BUFFER_MAX
@@ -352,9 +353,33 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				);
 			}
 			else
-				oStatusBar.StatusBarSetText(0
-					, L"Login failed"
+			{
+				//StringCchPrintf(pszTextBuffer
+				//	, BUFFER_MAX
+				//	, L"%S"
+				//	, L"bla die bla"//pStructClient->response_body.c_str()
+				//);
+				//size_t length = strlen(pszItem) + 1;
+				//PWCHAR pwChar = new WCHAR[length];
+				//size_t conv;
+				//mbstowcs_s(&conv
+				//	, pwChar
+				//	, length
+				//	, pszItem
+				//	, length - 1
+				//);
+				size_t length = strlen(pStructClient->response_body.c_str()) + 1;
+				size_t conv;
+				mbstowcs_s(&conv
+					, pszTextBuffer
+					, length
+					, pStructClient->response_body.c_str()
+					, length - 1
 				);
+				oStatusBar.StatusBarSetText(1
+					, pszTextBuffer
+				);
+			}
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -707,13 +732,6 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 			, BUFFER_MAX
 		);
 		// convert to char*
-		//size_t convertedChars = 0;
-		//size_t lenHost = wcslen(pStructClient->pszHost) + 1;
-		//size_t lenPort = wcslen(pStructClient->pszPort) + 1;
-		//char* host_ = new char[lenHost];
-		//char* port_ = new char[lenPort];
-		//wcstombs_s(&convertedChars, host_, lenHost, pStructClient->pszHost, _TRUNCATE);
-		//wcstombs_s(&convertedChars, port_, lenPort, pStructClient->pszPort, _TRUNCATE);
 		size_t convertedChars = 0;
 		size_t lenUEA = wcslen(pStructClient->pszUEA) + 1;
 		size_t lenUP = wcslen(pStructClient->pszUP) + 1;
@@ -721,6 +739,7 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 		char* user_password_ = new char[lenUP];
 		wcstombs_s(&convertedChars, user_email_address_, lenUEA, pStructClient->pszUEA, _TRUNCATE);
 		wcstombs_s(&convertedChars, user_password_, lenUP, pStructClient->pszUP, _TRUNCATE);
+
 		switch (LOWORD(wParam))
 		{
 		case IDC_BTN_FORGOTPASSWORD:
@@ -735,6 +754,7 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 		case IDC_BTN_SUBMIT:
 		{
 			OutputDebugString(L"IDC_BTN_SUBMIT\n");
+			pStructClient->bLoggedin = false;
 			pStructClient->mode = "access";
 			pStructClient->target = "/login";
 			pStructClient->payload =
@@ -1453,8 +1473,12 @@ public:
 			pStructClient_->bConnected = true;
 
 		std::string response_body = res_.body();
-		if (mode_ == "access" && response_body == "login: succeeded.")
-			pStructClient_->bLoggedin = true;
+		if (mode_ == "access")
+		{
+			if (response_body == "login: succeeded")
+				pStructClient_->bLoggedin = true;
+			pStructClient_->response_body = response_body;
+		}
 			
 		// Gracefully close the socket
 		stream_.socket().shutdown(tcp::socket::shutdown_both, ec);

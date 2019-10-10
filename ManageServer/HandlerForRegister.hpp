@@ -29,7 +29,7 @@ public:
 		if (pSqlite->selectFromTable_(
 			"user_email_address",
 			user_email_address) == 0) {
-			response_payload += "email address is already registered, try a different email address.";
+			response_payload += "email address is already registered, try a different email address";
 			return;
 		}
 		// generate random string
@@ -46,7 +46,7 @@ public:
 			"no subject",
 			message_with_code);
 
-		response_payload += "enter the code received by email.";
+		response_payload += "enter the code received by email";
 		return;
 	}
 	void handle_register_confirm(
@@ -62,9 +62,9 @@ public:
 				user_email_address,
 				user_password
 			);
-			response_payload += user_email_address + " is now a registered user.";
+			response_payload += user_email_address + " is now a registered user";
 		}
 		else
-			response_payload += " the given code is not correct.";
+			response_payload += " the given code is not correct";
 	}
 };

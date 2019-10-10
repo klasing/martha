@@ -24,10 +24,10 @@ public:
 		if (pSqlite->selectFromTable_(
 			"user_email_address",
 			user_email_address) == -1) {
-			response_payload += "email address is unknown, try again.";
+			response_payload += "email address is unknown, try again";
 			return;
 		}
-		response_payload += "enter the code received by email.";
+		response_payload += "enter the code received by email";
 		// generate random string
 		generated_code = generate_random_string();
 		std::string message_with_code = "code " + generated_code;
@@ -54,9 +54,9 @@ public:
 				user_email_address,
 				user_password
 			);
-			response_payload += " password is reset.";
+			response_payload += " password is reset";
 		}
 		else
-			response_payload += " the given code is not correct.";
+			response_payload += " the given code is not correct";
 	}
 };
