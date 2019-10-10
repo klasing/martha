@@ -337,11 +337,20 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				oStatusBar.StatusBarSetText(0
 					, L"Can not connect to server"
 				);
+		// the verb 'access' is used for the mode when a user logs in 
+		// to the server
 		if (pStructClient->mode == "access")
 			if (pStructClient->bConnected)
+			{
+				StringCchPrintf(pszTextBuffer
+					, BUFFER_MAX
+					, L"Logged in %s"
+					, pStructClient->pszUEA
+					);
 				oStatusBar.StatusBarSetText(1
-					, L"Logged in"
+					, pszTextBuffer
 				);
+			}
 			else
 				oStatusBar.StatusBarSetText(0
 					, L"Login failed"

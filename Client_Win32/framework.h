@@ -33,5 +33,6 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #include <memory.h>
 #include <stdlib.h>
 #include <string>
+#include <strsafe.h>
 #include <tchar.h>
 
