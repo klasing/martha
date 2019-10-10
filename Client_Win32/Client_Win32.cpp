@@ -20,6 +20,7 @@ typedef struct tagSTRUCTCLIENT {
 	PWCHAR pszUC = nullptr;
 	std::string target = "/";
 	std::string mode = "";
+	std::string payload = "";
 } STRUCTCLIENT, *PSTRUCTCLIENT;
 
 //****************************************************************************
@@ -325,14 +326,26 @@ LRESULT CALLBACK WndProc(HWND hWnd
 	case IDM_ALLDONE:
 		OutputDebugString(L"IDM_ALLDONE\n");
 		pStructClient = (PSTRUCTCLIENT)lParam;
-		if (pStructClient->bConnected)
-			oStatusBar.StatusBarSetText(0
-				, L"Connected to server"
-			);
-		else
-			oStatusBar.StatusBarSetText(0
-				, L"Can not connect to server"
-			);
+		// the verb 'trace' is used for the mode when connecting
+		// to the server
+		if (pStructClient->mode == "trace")
+			if (pStructClient->bConnected)
+				oStatusBar.StatusBarSetText(0
+					, L"Connected to server"
+				);
+			else
+				oStatusBar.StatusBarSetText(0
+					, L"Can not connect to server"
+				);
+		if (pStructClient->mode == "access")
+			if (pStructClient->bConnected)
+				oStatusBar.StatusBarSetText(1
+					, L"Logged in"
+				);
+			else
+				oStatusBar.StatusBarSetText(0
+					, L"Login failed"
+				);
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -511,6 +524,20 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 		{
 		case IDC_BTN_CONNECT:
 			OutputDebugString(L"IDC_BTN_CONNECT\n");
+			if (!pStructClient->bConnected)
+			{
+				// testing for a connection, by sending a TRACE message
+				pStructClient->mode = "trace";
+				// start thread			
+				DWORD dwThreadID;
+				HANDLE hThread = CreateThread(NULL
+					, 0						// default stack size
+					, http_client_async		// thread function
+					, pStructClient			// argument to thread function
+					, 0						// default creation flags
+					, &dwThreadID			// returns the thread identifier
+				);
+			}
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
 		case IDCANCEL:
@@ -657,36 +684,38 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
 	case WM_COMMAND: {
-//		const int BUFF_MAX = 128;
-//		PWCHAR pszBuffUEA = new WCHAR[BUFF_MAX];	// UEA = UserEmailAddress
-//		PWCHAR pszBuffUP = new WCHAR[BUFF_MAX];		// UP = UserPassword
-//		GetDlgItemText(hDlg
-//			, IDC_EDT_UEA
-//			, pszBuffUEA
-//			, BUFF_MAX
-//		);
-//		GetDlgItemText(hDlg
-//			, IDC_EDT_UP
-//			, pszBuffUP
-//			, BUFF_MAX
-//		);
+		// load pStructDlg with UEA and UP data
+		pStructClient->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
+		pStructClient->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
+		GetDlgItemText(hDlg
+			, IDC_EDT_UEA
+			, pStructClient->pszUEA
+			, BUFFER_MAX
+		);
+		GetDlgItemText(hDlg
+			, IDC_EDT_UP
+			, pStructClient->pszUP
+			, BUFFER_MAX
+		);
+		// convert to char*
+		//size_t convertedChars = 0;
+		//size_t lenHost = wcslen(pStructClient->pszHost) + 1;
+		//size_t lenPort = wcslen(pStructClient->pszPort) + 1;
+		//char* host_ = new char[lenHost];
+		//char* port_ = new char[lenPort];
+		//wcstombs_s(&convertedChars, host_, lenHost, pStructClient->pszHost, _TRUNCATE);
+		//wcstombs_s(&convertedChars, port_, lenPort, pStructClient->pszPort, _TRUNCATE);
+		size_t convertedChars = 0;
+		size_t lenUEA = wcslen(pStructClient->pszUEA) + 1;
+		size_t lenUP = wcslen(pStructClient->pszUP) + 1;
+		char* user_email_address_ = new char[lenUEA];
+		char* user_password_ = new char[lenUP];
+		wcstombs_s(&convertedChars, user_email_address_, lenUEA, pStructClient->pszUEA, _TRUNCATE);
+		wcstombs_s(&convertedChars, user_password_, lenUP, pStructClient->pszUP, _TRUNCATE);
 		switch (LOWORD(wParam))
 		{
 		case IDC_BTN_FORGOTPASSWORD:
 			OutputDebugString(L"IDC_BTN_FORGOTPASSWORD\n");
-			// load pStructDlg with UEA and UP data
-			pStructClient->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
-			pStructClient->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
-			GetDlgItemText(hDlg
-				, IDC_EDT_UEA
-				, pStructClient->pszUEA
-				, BUFFER_MAX
-			);
-			GetDlgItemText(hDlg
-				, IDC_EDT_UP
-				, pStructClient->pszUP
-				, BUFFER_MAX
-			);
 			EndDialog(hDlg, LOWORD(wParam));
 			SendMessage(pStructClient->hWnd
 				, WM_COMMAND
@@ -695,9 +724,27 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 			);
 			return (INT_PTR)TRUE;
 		case IDC_BTN_SUBMIT:
+		{
 			OutputDebugString(L"IDC_BTN_SUBMIT\n");
+			pStructClient->mode = "access";
+			pStructClient->target = "/login";
+			pStructClient->payload =
+				std::string("user_email_address=") +
+				user_email_address_ +
+				"&user_password=" +
+				user_password_;
+			// start thread			
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL
+				, 0						// default stack size
+				, http_client_async		// thread function
+				, pStructClient			// argument to thread function
+				, 0						// default creation flags
+				, &dwThreadID			// returns the thread identifier
+			);
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
+		} // eof IDC_BTN_SUBMIT
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL\n");
 			EndDialog(hDlg, LOWORD(wParam));
@@ -1245,11 +1292,12 @@ class session : public std::enable_shared_from_this<session>
 	http::request<http::file_body> req_with_file_body_;
 	http::response<http::string_body> res_;
 	std::string mode_;
+	std::string payload_;
 	std::string target_;
 	std::string host_;
 	std::string port_;
 	int version_;
-	bool bConnected_ = false;
+	PSTRUCTCLIENT pStructClient_;
 	std::shared_ptr<std::string const> doc_root_;
 
 public:
@@ -1266,18 +1314,19 @@ public:
 
 	// Start the asynchronous operation
 	void
-		run(char const* mode
-			, char const* target
+		run(PSTRUCTCLIENT pStructClient
+			, char const* payload
 			, char const* host
 			, char const* port
-			, int version
 		)
 	{
-		mode_ = mode;
-		target_ = target;
+		mode_ = pStructClient->mode;
+		payload_ = payload;
+		target_ = pStructClient->target;
+		version_ = pStructClient->HttpVersion;
 		host_ = host;
 		port_ = port;
-		version_ = version;
+		pStructClient_ = pStructClient;
 
 		if (mode_ == "trace")
 		{
@@ -1287,6 +1336,24 @@ public:
 			req_with_empty_body_.target(target_);
 			req_with_empty_body_.set(http::field::host, host_);
 			req_with_empty_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+		}
+		if (mode_ == "access")
+		{
+			// prepare payload
+			http::string_body::value_type body;
+			body = payload_;
+			auto size = payload_.length();
+
+			// Set up an HTTP POST request message
+			req_with_string_body_.method(http::verb::post);
+			req_with_string_body_.target(target_);
+			req_with_string_body_.version(version_);
+			req_with_string_body_.set(http::field::host, host_);
+			req_with_string_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+			req_with_string_body_.set(http::field::content_type, "application/x-www-form-urlencoded");
+			req_with_string_body_.content_length(size);
+			req_with_string_body_.body() = body;
+			req_with_string_body_.prepare_payload();
 		}
 
 		// Look up the domain name
@@ -1323,7 +1390,7 @@ public:
 		if (ec)
 		{
 			return fail(ec, "connect");
-			bConnected_ = false;
+			pStructClient_->bConnected = false;
 		}
 
 		// Set a timeout on the operation
@@ -1333,6 +1400,13 @@ public:
 		if (mode_ == "trace")
 		{
 			http::async_write(stream_, req_with_empty_body_,
+				beast::bind_front_handler(
+					&session::on_write,
+					shared_from_this()));
+		}
+		if (mode_ == "access")
+		{
+			http::async_write(stream_, req_with_string_body_,
 				beast::bind_front_handler(
 					&session::on_write,
 					shared_from_this()));
@@ -1367,7 +1441,11 @@ public:
 			return fail(ec, "read");
 
 		if (mode_ == "trace")
-			bConnected_ = true;
+			pStructClient_->bConnected = true;
+
+		std::string response_body = res_.body();
+		if (mode_ == "access" && response_body == "login: succeeded.")
+			pStructClient_->bLoggedin = true;
 			
 		// Gracefully close the socket
 		stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
@@ -1386,6 +1464,8 @@ public:
 DWORD WINAPI http_client_async(LPVOID lpVoid)
 {
 	PSTRUCTCLIENT pStructClient = (PSTRUCTCLIENT)lpVoid;
+	auto const payload = pStructClient->payload.c_str();
+
 	size_t convertedChars = 0;
 	size_t lenHost = wcslen(pStructClient->pszHost) + 1;
 	size_t lenPort = wcslen(pStructClient->pszPort) + 1;
@@ -1393,35 +1473,28 @@ DWORD WINAPI http_client_async(LPVOID lpVoid)
 	char* port_ = new char[lenPort];
 	wcstombs_s(&convertedChars, host_, lenHost, pStructClient->pszHost, _TRUNCATE);
 	wcstombs_s(&convertedChars, port_, lenPort, pStructClient->pszPort, _TRUNCATE);
-
-	auto const mode = pStructClient->mode.c_str();
-	auto const target = pStructClient->target.c_str();
 	auto const host = host_;
 	auto const port = port_;
-	int version = pStructClient->HttpVersion;
 
 	// The io_context is required for all I/O
 	net::io_context ioc;
 
 	// Launch the asynchronous operation
-	std::make_shared<session>(ioc)->run(mode
-		, target
+	std::make_shared<session>(ioc)->run(pStructClient
+		, payload
 		, host
 		, port
-		, version
 	);
 
 	// Run the I/O service. The call will return when
 	// the get operation is complete.
 	ioc.run();
 
-	pStructClient->bConnected = true;
 	// so, this is the way to set a pointer into a LPARAM variable!!!
 	LPARAM lParam = (INT_PTR)pStructClient;
-	// send message to return to the default state,
+	// send message to return the connect state
 	SendMessage(((PSTRUCTCLIENT)lpVoid)->hWnd,
 		IDM_ALLDONE, (WPARAM)0, (LPARAM)lParam);
-
 	return (DWORD)EXIT_SUCCESS;
 }
 
