@@ -9,20 +9,31 @@
 //****************************************************************************
 typedef struct tagSTRUCTCLIENT {
 	HWND hWnd = NULL;
-	PWCHAR pszDomain = nullptr;
-	PWCHAR pszHost = nullptr;
-	PWCHAR pszPort = nullptr;
 	int HttpVersion = 0;
 	bool bConnected = false;
 	bool bLoggedin = false;
+	PWCHAR pszDomain = nullptr;
+	PWCHAR pszHost = nullptr;
+	PWCHAR pszVersion = nullptr;
+	PWCHAR pszPort = nullptr;
 	PWCHAR pszUEA = nullptr;
 	PWCHAR pszUP = nullptr;
 	PWCHAR pszUC = nullptr;
+	PWCHAR pszFileNameOnServer = nullptr;
+	PWCHAR pszFileNameOnClient = nullptr;
 	std::string target = "/";
 	std::string mode = "";
 	std::string payload = "";
+	std::string file_name_on_server = "";
+	std::string file_name_on_client = "";
+	std::string host = "";
+	std::string port = "";
+	std::string version = "";
+	std::string user_email_address = "";
+	std::string user_password = "";
+	std::string user_code = "";
 	std::string response_body;	// contains message from server
-} STRUCTCLIENT, *PSTRUCTCLIENT;
+} STRUCTCLIENT, * PSTRUCTCLIENT;
 
 //****************************************************************************
 //*                     global
@@ -213,19 +224,29 @@ LRESULT CALLBACK WndProc(HWND hWnd
 		//	, hWnd
 		//	, DlgProc
 		//);
-
+		size_t len = 0;
 		pStructClient->hWnd = hWnd;
+
 		pStructClient->pszHost = new WCHAR[BUFFER_MAX];
-		pStructClient->pszPort = new WCHAR[BUFFER_MAX];
+		len = wcslen(L"192.168.178.14") + 1;
 		wcscpy_s(pStructClient->pszHost
-			, wcslen(L"192.168.178.14") + 1
+			, len
 			, L"192.168.178.14"
 		);
+		for (int i = 0; i < len; i++)
+			pStructClient->host += pStructClient->pszHost[i];
+
+		pStructClient->pszPort = new WCHAR[BUFFER_MAX];
+		len = wcslen(L"8080") + 1;
 		wcscpy_s(pStructClient->pszPort
-			, wcslen(L"8080") + 1
+			, len
 			, L"8080"
 		);
+		for (int i = 0; i < len; i++)
+			pStructClient->port += pStructClient->pszPort[i];
+
 		pStructClient->HttpVersion = 11;
+
 		// testing for a connection, by sending a TRACE message
 		pStructClient->mode = "trace";
 		// start thread			
@@ -276,12 +297,17 @@ LRESULT CALLBACK WndProc(HWND hWnd
 			break;
 		case IDM_FORGOTPASSWORD:
 			OutputDebugString(L"IDM_FORGOTPASSWORD [WndProc]\n");
-			DialogBoxParam(hInst
-				, L"MODALWINDOW"
-				, hWnd
-				, ForgotPasswordProc
-				, (LPARAM)pStructClient
-			);
+			if (pStructClient->user_email_address == "guest@example.com")
+				oStatusBar.StatusBarSetText(1
+					, L"reset_password: you can not reset the password from a default user"
+				);
+			else
+				DialogBoxParam(hInst
+					, L"MODALWINDOW"
+					, hWnd
+					, ForgotPasswordProc
+					, (LPARAM)pStructClient
+				);
 			break;
 		case IDM_REGISTER:
 			OutputDebugString(L"IDM_REGISTER\n");
@@ -347,29 +373,16 @@ LRESULT CALLBACK WndProc(HWND hWnd
 					, BUFFER_MAX
 					, L"Logged in %s"
 					, pStructClient->pszUEA
-					);
+				);
 				oStatusBar.StatusBarSetText(1
 					, pszTextBuffer
 				);
 			}
 			else
 			{
-				//StringCchPrintf(pszTextBuffer
-				//	, BUFFER_MAX
-				//	, L"%S"
-				//	, L"bla die bla"//pStructClient->response_body.c_str()
-				//);
-				//size_t length = strlen(pszItem) + 1;
-				//PWCHAR pwChar = new WCHAR[length];
-				//size_t conv;
-				//mbstowcs_s(&conv
-				//	, pwChar
-				//	, length
-				//	, pszItem
-				//	, length - 1
-				//);
 				size_t length = strlen(pStructClient->response_body.c_str()) + 1;
 				size_t conv;
+				// converting from std::string to PWCHAR
 				mbstowcs_s(&conv
 					, pszTextBuffer
 					, length
@@ -416,6 +429,36 @@ INT_PTR CALLBACK About(HWND hDlg
 }
 
 //****************************************************************************
+//*                     GetDlgItemTextIntoStructClient
+//****************************************************************************
+VOID GetDlgItemTextIntoStructClient(const HWND& hDlg
+	, const int& nIDDlgItem
+	, PWCHAR& pszSource
+	, std::string& sDestination
+)
+{
+	GetDlgItemText(hDlg
+		, nIDDlgItem
+		, pszTextBuffer
+		, BUFFER_MAX
+	);
+	size_t len = wcslen(pszTextBuffer) + 1;
+	pszSource = new WCHAR[len];
+	wcscpy_s(pszSource
+		, len
+		, pszTextBuffer
+	);
+	// this is dangerous, terrifying and horrible
+	// but what can you do, going from PWCHAR to std::string?
+	// there will be guaranteed trouble when unicode appears in pszSource
+	// DO NOT copy the terminating \0 character, so it will be:
+	// len minus one
+	sDestination = "";
+	for (int i = 0; i < len - 1; i++)
+		sDestination += pszSource[i];
+}
+
+//****************************************************************************
 //*                     ConnectProc
 //****************************************************************************
 INT_PTR CALLBACK ConnectProc(HWND hDlg
@@ -436,9 +479,6 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Connect");
-		//RECT clientRect;
-		//GetClientRect(pStructDlg->hWnd, &clientRect);
-		//ClientToScreen(&clientRect);
 		POINT point;
 		point.x = 0;
 		point.y = 0;
@@ -479,7 +519,7 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			, (PWCHAR)L"192.168.178.14"
 			, 0
 			, hDlg
-			, IDC_EDT_DOMAIN
+			, IDC_EDT_HOST
 			, hInst
 			, 140, 50, 230, 16
 		);
@@ -562,6 +602,29 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 			{
 				// testing for a connection, by sending a TRACE message
 				pStructClient->mode = "trace";
+
+				GetDlgItemTextIntoStructClient(hDlg
+					, IDC_EDT_HOST
+					, pStructClient->pszHost
+					, pStructClient->host
+				);
+
+				GetDlgItemTextIntoStructClient(hDlg
+					, IDC_EDT_PORT
+					, pStructClient->pszPort
+					, pStructClient->port
+				);
+
+				GetDlgItemTextIntoStructClient(hDlg
+					, IDC_EDT_HTTP_VERSION
+					, pStructClient->pszVersion
+					, pStructClient->version
+				);
+				if (!wcscmp(L"1.0", pStructClient->pszVersion))
+					pStructClient->HttpVersion = 10;
+				if (!wcscmp(L"1.1", pStructClient->pszVersion))
+					pStructClient->HttpVersion = 11;
+
 				// start thread			
 				DWORD dwThreadID;
 				HANDLE hThread = CreateThread(NULL
@@ -717,28 +780,19 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
-	case WM_COMMAND: {
-		// load pStructDlg with UEA and UP data
-		pStructClient->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
-		pStructClient->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
-		GetDlgItemText(hDlg
+	case WM_COMMAND:
+	{
+		// load pStructClient with UEAand UP data
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UEA
 			, pStructClient->pszUEA
-			, BUFFER_MAX
+			, pStructClient->user_email_address
 		);
-		GetDlgItemText(hDlg
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UP
 			, pStructClient->pszUP
-			, BUFFER_MAX
+			, pStructClient->user_password
 		);
-		// convert to char*
-		size_t convertedChars = 0;
-		size_t lenUEA = wcslen(pStructClient->pszUEA) + 1;
-		size_t lenUP = wcslen(pStructClient->pszUP) + 1;
-		char* user_email_address_ = new char[lenUEA];
-		char* user_password_ = new char[lenUP];
-		wcstombs_s(&convertedChars, user_email_address_, lenUEA, pStructClient->pszUEA, _TRUNCATE);
-		wcstombs_s(&convertedChars, user_password_, lenUP, pStructClient->pszUP, _TRUNCATE);
 
 		switch (LOWORD(wParam))
 		{
@@ -759,9 +813,9 @@ INT_PTR CALLBACK LoginProc(HWND hDlg
 			pStructClient->target = "/login";
 			pStructClient->payload =
 				std::string("user_email_address=") +
-				user_email_address_ +
+				pStructClient->user_email_address +
 				"&user_password=" +
-				user_password_;
+				pStructClient->user_password;
 			// start thread			
 			DWORD dwThreadID;
 			HANDLE hThread = CreateThread(NULL
@@ -830,14 +884,14 @@ VOID set_window_login(const HWND& hDlg
 
 	if (bLogin)
 		HWND hWndBtnForgotPassword =
-			helper_for_render_control((std::string)"button"
-				, (PWCHAR)L"Forgot Password"
-				, 0
-				, hDlg
-				, IDC_BTN_FORGOTPASSWORD
-				, hInst
-				, 170, 80, 120, 22
-			);
+		helper_for_render_control((std::string)"button"
+			, (PWCHAR)L"Forgot Password"
+			, 0
+			, hDlg
+			, IDC_BTN_FORGOTPASSWORD
+			, hInst
+			, 170, 80, 120, 22
+		);
 
 	HWND hWndBtnSubmit =
 		helper_for_render_control((std::string)"button"
@@ -882,11 +936,6 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Forgot Password");
-//		set_window_with_user_code(hDlg
-//			, hInst
-//			, 0, 0, 410, 300
-//			, SWP_NOMOVE
-//		);
 		POINT point;
 		point.x = 0;
 		point.y = 0;
@@ -913,36 +962,22 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
 	case WM_COMMAND:
-		// load pStructDlg with UEA, UP, and UC data
-		pStructClient->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
-		pStructClient->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
-		pStructClient->pszUC = new WCHAR[BUFFER_MAX];	// UC = UserCode
-		GetDlgItemText(hDlg
+		// load pStructClient with UEA, UP, and UC data
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UEA
 			, pStructClient->pszUEA
-			, BUFFER_MAX
+			, pStructClient->user_email_address
 		);
-		GetDlgItemText(hDlg
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UP
 			, pStructClient->pszUP
-			, BUFFER_MAX
+			, pStructClient->user_password
 		);
-		GetDlgItemText(hDlg
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UC
 			, pStructClient->pszUC
-			, BUFFER_MAX
+			, pStructClient->user_code
 		);
-		// convert to char*
-		size_t convertedChars = 0;
-		size_t lenUEA = wcslen(pStructClient->pszUEA) + 1;
-		size_t lenUP = wcslen(pStructClient->pszUP) + 1;
-		size_t lenUC = wcslen(pStructClient->pszUC) + 1;
-		char* user_email_address_ = new char[lenUEA];
-		char* user_password_ = new char[lenUP];
-		char* user_code_ = new char[lenUC];
-		wcstombs_s(&convertedChars, user_email_address_, lenUEA, pStructClient->pszUEA, _TRUNCATE);
-		wcstombs_s(&convertedChars, user_password_, lenUP, pStructClient->pszUP, _TRUNCATE);
-		wcstombs_s(&convertedChars, user_code_, lenUC, pStructClient->pszUC, _TRUNCATE);
 
 		switch (LOWORD(wParam))
 		{
@@ -953,9 +988,9 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 			pStructClient->target = "/reset_password";
 			pStructClient->payload =
 				std::string("user_email_address=") +
-				user_email_address_ +
+				pStructClient->user_email_address +
 				"&user_password=" +
-				user_password_;
+				pStructClient->user_password;
 			// start thread			
 			DWORD dwThreadID;
 			HANDLE hThread = CreateThread(NULL
@@ -975,11 +1010,11 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 			pStructClient->target = "/reset_password_confirm";
 			pStructClient->payload =
 				std::string("user_email_address=") +
-				user_email_address_ +
+				pStructClient->user_email_address +
 				"&user_password=" +
-				user_password_ +
+				pStructClient->user_password +
 				"&confirmation_code=" +
-				user_code_;
+				pStructClient->user_code;
 			// start thread			
 			DWORD dwThreadID;
 			HANDLE hThread = CreateThread(NULL
@@ -990,7 +1025,7 @@ INT_PTR CALLBACK ForgotPasswordProc(HWND hDlg
 				, &dwThreadID			// returns the thread identifier
 			);
 			EndDialog(hDlg, LOWORD(wParam));
-			break;
+			return (INT_PTR)TRUE;
 		} // eof IDC_BTN_SUBMIT_UC
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL\n");
@@ -1025,11 +1060,6 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 		// necessary for the message loop to find this dialog, when found
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Register");
-//		set_window_with_user_code(hDlg
-//			, hInst
-//			, 0, 0, 410, 300
-//			, SWP_NOMOVE
-//		);
 		POINT point;
 		point.x = 0;
 		point.y = 0;
@@ -1047,36 +1077,22 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
 	case WM_COMMAND:
-		// load pStructDlg with UEA, UP, and UC data
-		pStructClient->pszUEA = new WCHAR[BUFFER_MAX];	// UEA = UserEmailAddress
-		pStructClient->pszUP = new WCHAR[BUFFER_MAX];	// UP = UserPassword
-		pStructClient->pszUC = new WCHAR[BUFFER_MAX];	// UC = UserCode
-		GetDlgItemText(hDlg
+		// load pStructClient with UEA, UP, and UC data
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UEA
 			, pStructClient->pszUEA
-			, BUFFER_MAX
+			, pStructClient->user_email_address
 		);
-		GetDlgItemText(hDlg
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UP
 			, pStructClient->pszUP
-			, BUFFER_MAX
+			, pStructClient->user_password
 		);
-		GetDlgItemText(hDlg
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_UC
 			, pStructClient->pszUC
-			, BUFFER_MAX
+			, pStructClient->user_code
 		);
-		// convert to char*
-		size_t convertedChars = 0;
-		size_t lenUEA = wcslen(pStructClient->pszUEA) + 1;
-		size_t lenUP = wcslen(pStructClient->pszUP) + 1;
-		size_t lenUC = wcslen(pStructClient->pszUC) + 1;
-		char* user_email_address_ = new char[lenUEA];
-		char* user_password_ = new char[lenUP];
-		char* user_code_ = new char[lenUC];
-		wcstombs_s(&convertedChars, user_email_address_, lenUEA, pStructClient->pszUEA, _TRUNCATE);
-		wcstombs_s(&convertedChars, user_password_, lenUP, pStructClient->pszUP, _TRUNCATE);
-		wcstombs_s(&convertedChars, user_code_, lenUC, pStructClient->pszUC, _TRUNCATE);
 
 		switch (LOWORD(wParam))
 		{
@@ -1087,9 +1103,9 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 			pStructClient->target = "/register";
 			pStructClient->payload =
 				std::string("user_email_address=") +
-				user_email_address_ +
+				pStructClient->user_email_address +
 				"&user_password=" +
-				user_password_;
+				pStructClient->user_password;
 			// start thread			
 			DWORD dwThreadID;
 			HANDLE hThread = CreateThread(NULL
@@ -1109,11 +1125,11 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 			pStructClient->target = "/register_confirm";
 			pStructClient->payload =
 				std::string("user_email_address=") +
-				user_email_address_ +
+				pStructClient->user_email_address +
 				"&user_password=" +
-				user_password_ +
+				pStructClient->user_password +
 				"&confirmation_code=" +
-				user_code_;
+				pStructClient->user_code;
 			// start thread			
 			DWORD dwThreadID;
 			HANDLE hThread = CreateThread(NULL
@@ -1124,7 +1140,7 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 				, &dwThreadID			// returns the thread identifier
 			);
 			EndDialog(hDlg, LOWORD(wParam));
-			break;
+			return (INT_PTR)TRUE;
 		} // eof IDC_BTN_SUBMIT_UC
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL [RegisterProc]\n");
@@ -1136,6 +1152,15 @@ INT_PTR CALLBACK RegisterProc(HWND hDlg
 
 	return (INT_PTR)FALSE;
 }
+
+// converting from PWCHAR to PCHAR (char*)
+//size_t lenUC = wcslen(pStructClient->pszUC) + 1;
+//wcstombs_s(&convertedChars
+//	, user_code_
+//	, lenUC
+//	, pStructClient->pszUC
+//	, _TRUNCATE
+//);
 
 //****************************************************************************
 //*                     set_window_with_user_code
@@ -1303,8 +1328,19 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 				, hInst
 				, 300, 80, 70, 22
 			);
+		// check if user is logged in
+		if (pStructClient->bConnected)
+		{
+			wcscpy_s(pszTextBuffer, BUFFER_MAX, L"");
+			// enable transfer button
+			EnableWindow(GetDlgItem(hDlg, IDC_BTN_TRANSFER)
+				, TRUE
+			);
+		}
+		else
+			wcscpy_s(pszTextBuffer, BUFFER_MAX, L"Please login first");
 		helper_for_render_control((std::string)"static"
-			, (PWCHAR)L""//(PWCHAR)L"Please login first."
+			, pszTextBuffer
 			, 0
 			, hDlg
 			, IDC_STATIC
@@ -1314,8 +1350,58 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
 	case WM_COMMAND:
+		pStructClient->pszFileNameOnServer = new WCHAR[BUFFER_MAX];
+		pStructClient->pszFileNameOnClient = new WCHAR[BUFFER_MAX];
+		GetDlgItemText(hDlg
+			, IDC_EDT_TARGET_FILE
+			, pStructClient->pszFileNameOnServer
+			, BUFFER_MAX
+		);
+		GetDlgItemText(hDlg
+			, IDC_EDT_DESTINATION_FILE
+			, pStructClient->pszFileNameOnClient
+			, BUFFER_MAX
+		);
+		// convert to char*
+		size_t convertedChars = 0;
+		size_t lenFNS = wcslen(pStructClient->pszFileNameOnServer) + 1;	// FNS = File Name on Server
+		size_t lenFNC = wcslen(pStructClient->pszFileNameOnClient) + 1;	// FNC = File Name on Client
+		char* file_name_on_server = new char[lenFNS];
+		char* file_name_on_client = new char[lenFNC];
+		wcstombs_s(&convertedChars
+			, file_name_on_server
+			, lenFNS
+			, pStructClient->pszFileNameOnServer
+			, _TRUNCATE
+		);
+		wcstombs_s(&convertedChars
+			, file_name_on_client
+			, lenFNC
+			, pStructClient->pszFileNameOnClient
+			, _TRUNCATE
+		);
+		pStructClient->file_name_on_server = file_name_on_server;
+		pStructClient->file_name_on_client = file_name_on_client;
+
 		switch (LOWORD(wParam))
 		{
+		case IDC_BTN_TRANSFER:
+		{
+			OutputDebugString(L"IDC_BTN_TRANSFER [DownloadProc]\n");
+			pStructClient->mode = "download";
+			pStructClient->target = "/";
+			// start thread			
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL
+				, 0						// default stack size
+				, http_client_async		// thread function
+				, pStructClient			// argument to thread function
+				, 0						// default creation flags
+				, &dwThreadID			// returns the thread identifier
+			);
+			EndDialog(hDlg, LOWORD(wParam));
+			break;
+		} // eof IDC_BTN_TRANSFER
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL [DownloadProc]\n");
 			EndDialog(hDlg, LOWORD(wParam));
@@ -1402,8 +1488,19 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 				, hInst
 				, 300, 80, 70, 22
 			);
+		// check if user is logged in
+		if (pStructClient->bConnected)
+		{
+			wcscpy_s(pszTextBuffer, BUFFER_MAX, L"");
+			// enable transfer button
+			EnableWindow(GetDlgItem(hDlg, IDC_BTN_TRANSFER)
+				, TRUE
+			);
+		}
+		else
+			wcscpy_s(pszTextBuffer, BUFFER_MAX, L"Please login first");
 		helper_for_render_control((std::string)"static"
-			, (PWCHAR)L""//(PWCHAR)L"Please login first"
+			, pszTextBuffer
 			, 0
 			, hDlg
 			, IDC_STATIC
@@ -1415,6 +1512,9 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
+		case IDC_BTN_TRANSFER:
+			OutputDebugString(L"IDC_BTN_TRANSFER [UploadProc]\n");
+			break;
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL [UploadProc]\n");
 			EndDialog(hDlg, LOWORD(wParam));
@@ -1426,15 +1526,95 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 	return (INT_PTR)FALSE;
 }
 
+//////////////////////////////////////////////////////////////////////////////
+//                      BOOST PART
+//////////////////////////////////////////////////////////////////////////////
+
+//***************************************************************************
+//*                    namespace
+//***************************************************************************
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
 namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 //***************************************************************************
+//*                    prototype
+//***************************************************************************
+
+//***************************************************************************
 //*                    global
 //***************************************************************************
-const int SECONDS_BEFORE_EXPIRING = 30;
+const int SECONDS_BEFORE_EXPIRING = 300;
+
+//***************************************************************************
+//*                    mime_type
+//***************************************************************************
+// Return a reasonable mime type based on the extension of a file.
+inline beast::string_view
+mime_type(beast::string_view path)
+{
+	using beast::iequals;
+	auto const ext = [&path]
+	{
+		auto const pos = path.rfind(".");
+		if (pos == beast::string_view::npos)
+			return beast::string_view{};
+		return path.substr(pos);
+	}();
+	if (iequals(ext, ".htm"))  return "text/html";
+	if (iequals(ext, ".html")) return "text/html";
+	if (iequals(ext, ".php"))  return "text/html";
+	if (iequals(ext, ".css"))  return "text/css";
+	if (iequals(ext, ".txt"))  return "text/plain";
+	if (iequals(ext, ".js"))   return "application/javascript";
+	if (iequals(ext, ".json")) return "application/json";
+	if (iequals(ext, ".xml"))  return "application/xml";
+	if (iequals(ext, ".swf"))  return "application/x-shockwave-flash";
+	if (iequals(ext, ".flv"))  return "video/x-flv";
+	if (iequals(ext, ".png"))  return "image/png";
+	if (iequals(ext, ".jpe"))  return "image/jpeg";
+	if (iequals(ext, ".jpeg")) return "image/jpeg";
+	if (iequals(ext, ".jpg"))  return "image/jpeg";
+	if (iequals(ext, ".gif"))  return "image/gif";
+	if (iequals(ext, ".bmp"))  return "image/bmp";
+	if (iequals(ext, ".ico"))  return "image/vnd.microsoft.icon";
+	if (iequals(ext, ".tiff")) return "image/tiff";
+	if (iequals(ext, ".tif"))  return "image/tiff";
+	if (iequals(ext, ".svg"))  return "image/svg+xml";
+	if (iequals(ext, ".svgz")) return "image/svg+xml";
+	return "application/text";
+}
+
+//***************************************************************************
+//*                    path_cat
+//***************************************************************************
+// Append an HTTP rel-path to a local filesystem path.
+// The returned path is normalized for the platform.
+inline std::string
+path_cat(
+	beast::string_view base,
+	beast::string_view path)
+{
+	if (base.empty())
+		return std::string(path);
+	std::string result(base);
+#ifdef BOOST_MSVC
+	char constexpr path_separator = '\\';
+	if (result.back() == path_separator)
+		result.resize(result.size() - 1);
+	result.append(path.data(), path.size());
+	for (auto& c : result)
+		if (c == '/')
+			c = path_separator;
+#else
+	char constexpr path_separator = '/';
+	if (result.back() == path_separator)
+		result.resize(result.size() - 1);
+	result.append(path.data(), path.size());
+#endif
+	return result;
+}
 
 //****************************************************************************
 //*                     fail
@@ -1454,12 +1634,17 @@ class session : public std::enable_shared_from_this<session>
 	tcp::resolver resolver_;
 	beast::tcp_stream stream_;
 	beast::flat_buffer buffer_; // (Must persist between reads)
+	//http::request<http::empty_body> req_;
 	http::request<http::empty_body> req_with_empty_body_;
 	http::request<http::string_body> req_with_string_body_;
 	http::request<http::file_body> req_with_file_body_;
 	http::response<http::string_body> res_;
 	std::string mode_;
+	std::string user_email_address_;
+	std::string user_password_;
 	std::string payload_;
+	std::string file_name_on_server_;
+	std::string file_name_on_client_;
 	std::string target_;
 	std::string host_;
 	std::string port_;
@@ -1475,25 +1660,45 @@ public:
 		: resolver_(net::make_strand(ioc))
 		, stream_(net::make_strand(ioc))
 	{
+		//std::cout << "<<constructor>> session()\n";
 		OutputDebugString(L"<<constructor>> session()\n");
 		doc_root_ = std::make_shared<std::string>("./user_space");
 	}
 
 	// Start the asynchronous operation
 	void
-		run(PSTRUCTCLIENT pStructClient
-			, char const* payload
-			, char const* host
-			, char const* port
+		run(
+			char const* mode,
+			char const* user_email_address,
+			char const* user_password,
+			char const* payload,
+			char const* file_name_on_server,
+			char const* file_name_on_client,
+			char const* target,
+			char const* host,
+			char const* port,
+			int version,
+			PSTRUCTCLIENT pStructClient
 		)
 	{
-		mode_ = pStructClient->mode;
+		mode_ = mode;
+		user_email_address_ = user_email_address;
+		user_password_ = user_password;
 		payload_ = payload;
-		target_ = pStructClient->target;
-		version_ = pStructClient->HttpVersion;
+		file_name_on_server_ = "/" + std::string(file_name_on_server);
+		file_name_on_client_ = file_name_on_client;
+		target_ = target;
 		host_ = host;
 		port_ = port;
+		version_ = version;
 		pStructClient_ = pStructClient;
+
+		// Set up an HTTP GET request message
+		//req_.version(version);
+		//req_.method(http::verb::get);
+		//req_.target(target);
+		//req_.set(http::field::host, host);
+		//req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
 		if (mode_ == "trace")
 		{
@@ -1504,6 +1709,7 @@ public:
 			req_with_empty_body_.set(http::field::host, host_);
 			req_with_empty_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 		}
+
 		if (mode_ == "access")
 		{
 			// prepare payload
@@ -1521,6 +1727,65 @@ public:
 			req_with_string_body_.content_length(size);
 			req_with_string_body_.body() = body;
 			req_with_string_body_.prepare_payload();
+		}
+
+		if (mode_ == "download")
+		{
+			// Set up an HTTP GET request message
+			req_with_empty_body_.version(version_);
+			req_with_empty_body_.method(http::verb::get);
+			req_with_empty_body_.target(file_name_on_server_); //req_with_empty_body_.target(target_);
+			req_with_empty_body_.set(http::field::host, host_);
+			req_with_empty_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+		}
+
+		if (mode_ == "upload")
+		{
+			// Attempt to open the file
+			beast::error_code ec;
+			http::file_body::value_type body;
+			body.open(file_name_on_client_.c_str(), beast::file_mode::scan, ec);
+
+			// Handle the case where the file doesn't exist
+			if (ec == beast::errc::no_such_file_or_directory) {
+				//std::cout << file_name_on_client_.c_str() << " not found" << std::endl;
+				wprintf_s(pszTextBuffer
+					, BUFFER_MAX
+					, L"%S not found\n"
+					, file_name_on_client_.c_str()
+				);
+				OutputDebugString(pszTextBuffer);
+				return;
+			}
+
+			// Handle an unknown error
+			if (ec)
+			{
+				//std::cout << "Error: " << ec.message() << std::endl;
+				wprintf_s(pszTextBuffer
+					, BUFFER_MAX
+					, L"Error: %S\n"
+					, ec.message().c_str()
+				);
+				OutputDebugString(pszTextBuffer);
+			}
+
+			// Cache the size since we need it after the move
+			auto const size = body.size();
+
+			// Build the path to the requested file
+			std::string path = path_cat(*doc_root_, file_name_on_client_.c_str());
+
+			// Set up an HTTP PUT request message
+			req_with_file_body_.method(http::verb::put);
+			req_with_file_body_.target(file_name_on_server_);
+			req_with_file_body_.version(version_);
+			req_with_file_body_.set(http::field::host, host_);
+			req_with_file_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+			req_with_file_body_.set(http::field::content_type, mime_type(path));
+			req_with_file_body_.content_length(size);
+			req_with_file_body_.body() = std::move(body);
+			req_with_file_body_.prepare_payload();
 		}
 
 		// Look up the domain name
@@ -1554,8 +1819,7 @@ public:
 	void
 		on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type)
 	{
-		if (ec)
-		{
+		if (ec) {
 			return fail(ec, "connect");
 			pStructClient_->bConnected = false;
 		}
@@ -1564,7 +1828,13 @@ public:
 		stream_.expires_after(std::chrono::seconds(SECONDS_BEFORE_EXPIRING));
 
 		// Send the HTTP request to the remote host
-		if (mode_ == "trace")
+		//http::async_write(stream_, req_,
+		//	beast::bind_front_handler(
+		//		&session::on_write,
+		//		shared_from_this()));
+
+		// Send the HTTP request to the remote host
+		if (mode_ == "trace" || mode_ == "download")
 		{
 			http::async_write(stream_, req_with_empty_body_,
 				beast::bind_front_handler(
@@ -1574,6 +1844,13 @@ public:
 		if (mode_ == "access")
 		{
 			http::async_write(stream_, req_with_string_body_,
+				beast::bind_front_handler(
+					&session::on_write,
+					shared_from_this()));
+		}
+		if (mode_ == "upload")
+		{
+			http::async_write(stream_, req_with_file_body_,
 				beast::bind_front_handler(
 					&session::on_write,
 					shared_from_this()));
@@ -1609,15 +1886,31 @@ public:
 
 		if (mode_ == "trace")
 			pStructClient_->bConnected = true;
+		// Write the message to standard out
+		//std::cout << res_ << std::endl;
 
 		std::string response_body = res_.body();
-		if (mode_ == "access")
-		{
-			if (response_body == "login: succeeded")
-				pStructClient_->bLoggedin = true;
+		if (response_body == "login: succeeded")
+			pStructClient_->bLoggedin = true;
+
+		if (response_body == "login: email address is unknown, try again")
 			pStructClient_->response_body = response_body;
+
+		if (response_body == "login: password is incorrect")
+			pStructClient_->response_body = response_body;
+
+		if (response_body == "register: enter the code received by email" ||
+			response_body == "register: email address is already registered, try a different email address" ||
+			response_body == "reset_password: enter the code received by email")
+			pStructClient_->response_body = response_body;
+
+		// Store the received file on disk
+		if (!std::strcmp("download", mode_.c_str())) {
+			boost::filesystem::path p{ file_name_on_client_ };
+			boost::filesystem::ofstream ofs{ p };
+			ofs << res_.body();
 		}
-			
+
 		// Gracefully close the socket
 		stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
 
@@ -1635,26 +1928,62 @@ public:
 DWORD WINAPI http_client_async(LPVOID lpVoid)
 {
 	PSTRUCTCLIENT pStructClient = (PSTRUCTCLIENT)lpVoid;
-	auto const payload = pStructClient->payload.c_str();
 
-	size_t convertedChars = 0;
-	size_t lenHost = wcslen(pStructClient->pszHost) + 1;
-	size_t lenPort = wcslen(pStructClient->pszPort) + 1;
-	char* host_ = new char[lenHost];
-	char* port_ = new char[lenPort];
-	wcstombs_s(&convertedChars, host_, lenHost, pStructClient->pszHost, _TRUNCATE);
-	wcstombs_s(&convertedChars, port_, lenPort, pStructClient->pszPort, _TRUNCATE);
-	auto const host = host_;
-	auto const port = port_;
+	char cmd[] = "http-client-async";
+	char* mode = const_cast<char*>(pStructClient->mode.c_str());
+	char* user_email_address = const_cast<char*>(pStructClient->user_email_address.c_str());
+	char* user_password = const_cast<char*>(pStructClient->user_password.c_str());
+	char* payload = const_cast<char*>(pStructClient->payload.c_str());
+	char* file_name_on_server = const_cast<char*>(pStructClient->file_name_on_server.c_str());
+	char* file_name_on_client = const_cast<char*>(pStructClient->file_name_on_client.c_str());
+	char* target = const_cast<char*>(pStructClient->target.c_str());
+	char* host = const_cast<char*>(pStructClient->host.c_str());
+	char* port = const_cast<char*>(pStructClient->port.c_str());
+	char* version = const_cast<char*>(pStructClient->version.c_str());
+
+	int argc = 11;
+	char* argv[] = {
+		cmd,
+		mode,
+		user_email_address,
+		user_password,
+		payload,
+		file_name_on_server,
+		file_name_on_client,
+		target,
+		host,
+		port,
+		version
+	};
+
+	auto const cmd_ = argv[0];
+	auto const mode_ = argv[1];
+	auto const user_email_address_ = argv[2];
+	auto const user_password_ = argv[3];
+	auto const payload_ = argv[4];
+	auto const file_name_on_server_ = argv[5];
+	auto const file_name_on_client_ = argv[6];
+	auto const target_ = argv[7];
+	auto const host_ = argv[8];
+	auto const port_ = argv[9];
+	int version_ = argc == 11 && !std::strcmp("1.0", argv[10]) ? 10 : 11;
 
 	// The io_context is required for all I/O
 	net::io_context ioc;
 
 	// Launch the asynchronous operation
-	std::make_shared<session>(ioc)->run(pStructClient
-		, payload
-		, host
-		, port
+	std::make_shared<session>(ioc)->run(
+		mode_,
+		user_email_address_,
+		user_password_,
+		payload_,
+		file_name_on_server_,
+		file_name_on_client_,
+		target_,
+		host_,
+		port_,
+		version_,
+		pStructClient
 	);
 
 	// Run the I/O service. The call will return when
@@ -1666,188 +1995,6 @@ DWORD WINAPI http_client_async(LPVOID lpVoid)
 	// send message to return the connect state
 	SendMessage(((PSTRUCTCLIENT)lpVoid)->hWnd,
 		IDM_ALLDONE, (WPARAM)0, (LPARAM)lParam);
-	return (DWORD)EXIT_SUCCESS;
+
+	return EXIT_SUCCESS;
 }
-
-//////////////////////////////////////////////////////////////////////////////
-
-//// Client_Win32.cpp : Defines the entry point for the application.
-////
-//
-//#include "framework.h"
-//#include "Client_Win32.h"
-//
-//#define MAX_LOADSTRING 100
-//
-//// Global Variables:
-//HINSTANCE hInst;                                // current instance
-//WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
-//WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
-//
-//// Forward declarations of functions included in this code module:
-//ATOM                MyRegisterClass(HINSTANCE hInstance);
-//BOOL                InitInstance(HINSTANCE, int);
-//LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-//INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-//
-//int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-//                     _In_opt_ HINSTANCE hPrevInstance,
-//                     _In_ LPWSTR    lpCmdLine,
-//                     _In_ int       nCmdShow)
-//{
-//    UNREFERENCED_PARAMETER(hPrevInstance);
-//    UNREFERENCED_PARAMETER(lpCmdLine);
-//
-//    // TODO: Place code here.
-//
-//    // Initialize global strings
-//    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-//    LoadStringW(hInstance, IDC_CLIENTWIN32, szWindowClass, MAX_LOADSTRING);
-//    MyRegisterClass(hInstance);
-//
-//    // Perform application initialization:
-//    if (!InitInstance (hInstance, nCmdShow))
-//    {
-//        return FALSE;
-//    }
-//
-//    HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_CLIENTWIN32));
-//
-//    MSG msg;
-//
-//    // Main message loop:
-//    while (GetMessage(&msg, nullptr, 0, 0))
-//    {
-//        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-//        {
-//            TranslateMessage(&msg);
-//            DispatchMessage(&msg);
-//        }
-//    }
-//
-//    return (int) msg.wParam;
-//}
-//
-//
-//
-////
-////  FUNCTION: MyRegisterClass()
-////
-////  PURPOSE: Registers the window class.
-////
-//ATOM MyRegisterClass(HINSTANCE hInstance)
-//{
-//    WNDCLASSEXW wcex;
-//
-//    wcex.cbSize = sizeof(WNDCLASSEX);
-//
-//    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-//    wcex.lpfnWndProc    = WndProc;
-//    wcex.cbClsExtra     = 0;
-//    wcex.cbWndExtra     = 0;
-//    wcex.hInstance      = hInstance;
-//    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_CLIENTWIN32));
-//    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-//    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-//    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_CLIENTWIN32);
-//    wcex.lpszClassName  = szWindowClass;
-//    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
-//
-//    return RegisterClassExW(&wcex);
-//}
-//
-////
-////   FUNCTION: InitInstance(HINSTANCE, int)
-////
-////   PURPOSE: Saves instance handle and creates main window
-////
-////   COMMENTS:
-////
-////        In this function, we save the instance handle in a global variable and
-////        create and display the main program window.
-////
-//BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
-//{
-//   hInst = hInstance; // Store instance handle in our global variable
-//
-//   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-//      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
-//
-//   if (!hWnd)
-//   {
-//      return FALSE;
-//   }
-//
-//   ShowWindow(hWnd, nCmdShow);
-//   UpdateWindow(hWnd);
-//
-//   return TRUE;
-//}
-//
-////
-////  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-////
-////  PURPOSE: Processes messages for the main window.
-////
-////  WM_COMMAND  - process the application menu
-////  WM_PAINT    - Paint the main window
-////  WM_DESTROY  - post a quit message and return
-////
-////
-//LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-//{
-//    switch (message)
-//    {
-//    case WM_COMMAND:
-//        {
-//            int wmId = LOWORD(wParam);
-//            // Parse the menu selections:
-//            switch (wmId)
-//            {
-//            case IDM_ABOUT:
-//                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-//                break;
-//            case IDM_EXIT:
-//                DestroyWindow(hWnd);
-//                break;
-//            default:
-//                return DefWindowProc(hWnd, message, wParam, lParam);
-//            }
-//        }
-//        break;
-//    case WM_PAINT:
-//        {
-//            PAINTSTRUCT ps;
-//            HDC hdc = BeginPaint(hWnd, &ps);
-//            // TODO: Add any drawing code that uses hdc here...
-//            EndPaint(hWnd, &ps);
-//        }
-//        break;
-//    case WM_DESTROY:
-//        PostQuitMessage(0);
-//        break;
-//    default:
-//        return DefWindowProc(hWnd, message, wParam, lParam);
-//    }
-//    return 0;
-//}
-//
-//// Message handler for about box.
-//INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-//{
-//    UNREFERENCED_PARAMETER(lParam);
-//    switch (message)
-//    {
-//    case WM_INITDIALOG:
-//        return (INT_PTR)TRUE;
-//
-//    case WM_COMMAND:
-//        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-//        {
-//            EndDialog(hDlg, LOWORD(wParam));
-//            return (INT_PTR)TRUE;
-//        }
-//        break;
-//    }
-//    return (INT_PTR)FALSE;
-//}

@@ -163,6 +163,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Client_Win32.cpp" />
+    <ClCompile Include="Old_Client_Win32.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Client_Win32.rc" />

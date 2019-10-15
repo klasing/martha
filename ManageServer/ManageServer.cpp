@@ -1431,7 +1431,7 @@ public:
 		req_ = {};
 
 		// Set the timeout.
-		stream_.expires_after(std::chrono::seconds(30));
+		stream_.expires_after(std::chrono::seconds(SECONDS_BEFORE_EXPIRING));
 
 		// Read a request
 		http::async_read(stream_, buffer_, req_,
