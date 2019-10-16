@@ -377,6 +377,11 @@ LRESULT CALLBACK WndProc(HWND hWnd
 				oStatusBar.StatusBarSetText(1
 					, pszTextBuffer
 				);
+				// obviously the user is now connected to the server
+				pStructClient->bConnected = true;
+				oStatusBar.StatusBarSetText(0
+					, L"Connected to server"
+				);
 			}
 			else
 			{
@@ -437,25 +442,23 @@ VOID GetDlgItemTextIntoStructClient(const HWND& hDlg
 	, std::string& sDestination
 )
 {
+	pszSource = new WCHAR[BUFFER_MAX];
 	GetDlgItemText(hDlg
 		, nIDDlgItem
-		, pszTextBuffer
+		, pszSource
 		, BUFFER_MAX
 	);
-	size_t len = wcslen(pszTextBuffer) + 1;
-	pszSource = new WCHAR[len];
-	wcscpy_s(pszSource
+	// convert to char*
+	size_t convertedChars = 0;
+	size_t len = wcslen(pszSource) + 1;
+	char* pszChar = new char[len];
+	wcstombs_s(&convertedChars
+		, pszChar
 		, len
-		, pszTextBuffer
+		, pszSource
+		, _TRUNCATE
 	);
-	// this is dangerous, terrifying and horrible
-	// but what can you do, going from PWCHAR to std::string?
-	// there will be guaranteed trouble when unicode appears in pszSource
-	// DO NOT copy the terminating \0 character, so it will be:
-	// len minus one
-	sDestination = "";
-	for (int i = 0; i < len - 1; i++)
-		sDestination += pszSource[i];
+	sDestination = pszChar;
 }
 
 //****************************************************************************
@@ -597,46 +600,45 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 		switch (LOWORD(wParam))
 		{
 		case IDC_BTN_CONNECT:
+		{
 			OutputDebugString(L"IDC_BTN_CONNECT\n");
-			if (!pStructClient->bConnected)
-			{
-				// testing for a connection, by sending a TRACE message
-				pStructClient->mode = "trace";
+			// testing for a connection, by sending a TRACE message
+			pStructClient->mode = "trace";
 
-				GetDlgItemTextIntoStructClient(hDlg
-					, IDC_EDT_HOST
-					, pStructClient->pszHost
-					, pStructClient->host
-				);
+			GetDlgItemTextIntoStructClient(hDlg
+				, IDC_EDT_HOST
+				, pStructClient->pszHost
+				, pStructClient->host
+			);
 
-				GetDlgItemTextIntoStructClient(hDlg
-					, IDC_EDT_PORT
-					, pStructClient->pszPort
-					, pStructClient->port
-				);
+			GetDlgItemTextIntoStructClient(hDlg
+				, IDC_EDT_PORT
+				, pStructClient->pszPort
+				, pStructClient->port
+			);
 
-				GetDlgItemTextIntoStructClient(hDlg
-					, IDC_EDT_HTTP_VERSION
-					, pStructClient->pszVersion
-					, pStructClient->version
-				);
-				if (!wcscmp(L"1.0", pStructClient->pszVersion))
-					pStructClient->HttpVersion = 10;
-				if (!wcscmp(L"1.1", pStructClient->pszVersion))
-					pStructClient->HttpVersion = 11;
+			GetDlgItemTextIntoStructClient(hDlg
+				, IDC_EDT_HTTP_VERSION
+				, pStructClient->pszVersion
+				, pStructClient->version
+			);
+			if (!wcscmp(L"1.0", pStructClient->pszVersion))
+				pStructClient->HttpVersion = 10;
+			if (!wcscmp(L"1.1", pStructClient->pszVersion))
+				pStructClient->HttpVersion = 11;
 
-				// start thread			
-				DWORD dwThreadID;
-				HANDLE hThread = CreateThread(NULL
-					, 0						// default stack size
-					, http_client_async		// thread function
-					, pStructClient			// argument to thread function
-					, 0						// default creation flags
-					, &dwThreadID			// returns the thread identifier
-				);
-			}
+			// start thread			
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL
+				, 0						// default stack size
+				, http_client_async		// thread function
+				, pStructClient			// argument to thread function
+				, 0						// default creation flags
+				, &dwThreadID			// returns the thread identifier
+			);
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
+		} // eof IDC_BTN_CONNECT
 		case IDCANCEL:
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
@@ -1329,7 +1331,7 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 				, 300, 80, 70, 22
 			);
 		// check if user is logged in
-		if (pStructClient->bConnected)
+		if (pStructClient->bLoggedin)
 		{
 			wcscpy_s(pszTextBuffer, BUFFER_MAX, L"");
 			// enable transfer button
@@ -1350,38 +1352,16 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
 	case WM_COMMAND:
-		pStructClient->pszFileNameOnServer = new WCHAR[BUFFER_MAX];
-		pStructClient->pszFileNameOnClient = new WCHAR[BUFFER_MAX];
-		GetDlgItemText(hDlg
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_TARGET_FILE
 			, pStructClient->pszFileNameOnServer
-			, BUFFER_MAX
+			, pStructClient->file_name_on_server
 		);
-		GetDlgItemText(hDlg
+		GetDlgItemTextIntoStructClient(hDlg
 			, IDC_EDT_DESTINATION_FILE
 			, pStructClient->pszFileNameOnClient
-			, BUFFER_MAX
+			, pStructClient->file_name_on_client
 		);
-		// convert to char*
-		size_t convertedChars = 0;
-		size_t lenFNS = wcslen(pStructClient->pszFileNameOnServer) + 1;	// FNS = File Name on Server
-		size_t lenFNC = wcslen(pStructClient->pszFileNameOnClient) + 1;	// FNC = File Name on Client
-		char* file_name_on_server = new char[lenFNS];
-		char* file_name_on_client = new char[lenFNC];
-		wcstombs_s(&convertedChars
-			, file_name_on_server
-			, lenFNS
-			, pStructClient->pszFileNameOnServer
-			, _TRUNCATE
-		);
-		wcstombs_s(&convertedChars
-			, file_name_on_client
-			, lenFNC
-			, pStructClient->pszFileNameOnClient
-			, _TRUNCATE
-		);
-		pStructClient->file_name_on_server = file_name_on_server;
-		pStructClient->file_name_on_client = file_name_on_client;
 
 		switch (LOWORD(wParam))
 		{
@@ -1389,7 +1369,8 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 		{
 			OutputDebugString(L"IDC_BTN_TRANSFER [DownloadProc]\n");
 			pStructClient->mode = "download";
-			pStructClient->target = "/";
+			pStructClient->target = std::string("/user_space/") +
+				pStructClient->file_name_on_server;
 			// start thread			
 			DWORD dwThreadID;
 			HANDLE hThread = CreateThread(NULL
@@ -1400,7 +1381,7 @@ INT_PTR CALLBACK DownloadProc(HWND hDlg
 				, &dwThreadID			// returns the thread identifier
 			);
 			EndDialog(hDlg, LOWORD(wParam));
-			break;
+			return (INT_PTR)TRUE;
 		} // eof IDC_BTN_TRANSFER
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL [DownloadProc]\n");
@@ -1489,7 +1470,7 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 				, 300, 80, 70, 22
 			);
 		// check if user is logged in
-		if (pStructClient->bConnected)
+		if (pStructClient->bLoggedin)
 		{
 			wcscpy_s(pszTextBuffer, BUFFER_MAX, L"");
 			// enable transfer button
@@ -1510,11 +1491,41 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 		return (INT_PTR)TRUE;
 	} // eof WM_INITDIALOG
 	case WM_COMMAND:
+		// the nIDDlgItem is now misleading, because with an upload
+		// the transfer goes from DESTINATION to TARGET
+		// ideally the nIDDlgItem has to be changed for the edit,
+		// but this is not the case (to much work, didn't do)
+		GetDlgItemTextIntoStructClient(hDlg
+			, IDC_EDT_TARGET_FILE
+			, pStructClient->pszFileNameOnServer
+			, pStructClient->file_name_on_server
+		);
+		GetDlgItemTextIntoStructClient(hDlg
+			, IDC_EDT_DESTINATION_FILE
+			, pStructClient->pszFileNameOnClient
+			, pStructClient->file_name_on_client
+		);
+
 		switch (LOWORD(wParam))
 		{
 		case IDC_BTN_TRANSFER:
+		{
 			OutputDebugString(L"IDC_BTN_TRANSFER [UploadProc]\n");
-			break;
+			pStructClient->mode = "upload";
+			pStructClient->target = std::string("/user_space/") +
+				pStructClient->file_name_on_server;
+			// start thread			
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL
+				, 0						// default stack size
+				, http_client_async		// thread function
+				, pStructClient			// argument to thread function
+				, 0						// default creation flags
+				, &dwThreadID			// returns the thread identifier
+			);
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		} // eof IDC_BTN_TRANSFER
 		case IDCANCEL:
 			OutputDebugString(L"IDCANCEL [UploadProc]\n");
 			EndDialog(hDlg, LOWORD(wParam));
@@ -1734,7 +1745,7 @@ public:
 			// Set up an HTTP GET request message
 			req_with_empty_body_.version(version_);
 			req_with_empty_body_.method(http::verb::get);
-			req_with_empty_body_.target(file_name_on_server_); //req_with_empty_body_.target(target_);
+			req_with_empty_body_.target(target_);
 			req_with_empty_body_.set(http::field::host, host_);
 			req_with_empty_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 		}
@@ -1820,8 +1831,8 @@ public:
 		on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type)
 	{
 		if (ec) {
-			return fail(ec, "connect");
 			pStructClient_->bConnected = false;
+			return fail(ec, "connect");
 		}
 
 		// Set a timeout on the operation
@@ -1834,7 +1845,7 @@ public:
 		//		shared_from_this()));
 
 		// Send the HTTP request to the remote host
-		if (mode_ == "trace" || mode_ == "download")
+		if (mode_ == "trace")
 		{
 			http::async_write(stream_, req_with_empty_body_,
 				beast::bind_front_handler(
@@ -1844,6 +1855,13 @@ public:
 		if (mode_ == "access")
 		{
 			http::async_write(stream_, req_with_string_body_,
+				beast::bind_front_handler(
+					&session::on_write,
+					shared_from_this()));
+		}
+		if (mode_ == "download")
+		{
+			http::async_write(stream_, req_with_empty_body_,
 				beast::bind_front_handler(
 					&session::on_write,
 					shared_from_this()));
@@ -1890,19 +1908,20 @@ public:
 		//std::cout << res_ << std::endl;
 
 		std::string response_body = res_.body();
+		pStructClient_->response_body = response_body;
 		if (response_body == "login: succeeded")
 			pStructClient_->bLoggedin = true;
 
 		if (response_body == "login: email address is unknown, try again")
-			pStructClient_->response_body = response_body;
+			;
 
 		if (response_body == "login: password is incorrect")
-			pStructClient_->response_body = response_body;
+			;
 
 		if (response_body == "register: enter the code received by email" ||
 			response_body == "register: email address is already registered, try a different email address" ||
 			response_body == "reset_password: enter the code received by email")
-			pStructClient_->response_body = response_body;
+			;
 
 		// Store the received file on disk
 		if (!std::strcmp("download", mode_.c_str())) {

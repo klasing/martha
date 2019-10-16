@@ -54,9 +54,6 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Old_Client_Win32.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Client_Win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

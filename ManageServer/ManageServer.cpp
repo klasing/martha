@@ -1153,7 +1153,7 @@ template<
 	if (req.method() == http::verb::post) {
 		OutputDebugString(L"-> POST message received\n");
 		// a POST request can mean two things
-		// 1) an access to the server request, from an app. or a browser
+		// 1) a request to access the server, from an app. or a browser
 		// 2) a file upload from a browser into the user space
 
 		std::string user_agent =
@@ -1289,6 +1289,8 @@ template<
 			http::status::ok, req.version() };
 		res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
 		res.keep_alive(req.keep_alive());
+		// just to get a consistent logging message
+		requestLogMsg = requestLogMsg.insert(4, "/user_space");
 		store_new_log(pServerLogging
 			, pRemoteEndpoint
 			, requestLogMsg
