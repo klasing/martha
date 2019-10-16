@@ -32,6 +32,7 @@ typedef struct tagSTRUCTCLIENT {
 	std::string user_email_address = "";
 	std::string user_password = "";
 	std::string user_code = "";
+	std::string response;		// contains message from server
 	std::string response_body;	// contains message from server
 } STRUCTCLIENT, * PSTRUCTCLIENT;
 
