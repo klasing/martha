@@ -1,34 +1,35 @@
 #pragma once
 #include "GroupBox.hpp"
 //****************************************************************************
-//*                     GroupBoxRequest
+//*                     GroupBoxResponse
 //****************************************************************************
-class GroupBoxRequest : public GroupBox
+class GroupBoxResponse : public GroupBox
 {
-	HWND hWndEdtRequest;
+	HWND hWndEdtResponse;
 public:
 	HWND createGroupBox(const HINSTANCE& hInst
 		, const HWND& hDlg
 		, const int& resourceId
 	)
 	{
-		HWND hWndGroupBoxRequest = GroupBox::createGroupBox(
-			hInst
+		HWND hWndGroupBoxResponse = GroupBox::createGroupBox(hInst
 			, hDlg
 			, resourceId
-			, (PWCHAR)L"Request"
+			, (PWCHAR)L"Response"
 		);
-		hWndEdtRequest = CreateWindowEx(0
+
+		hWndEdtResponse = CreateWindowEx(0
 			, L"EDIT"
 			, L""
 			, ES_MULTILINE | ES_READONLY | WS_CHILD | WS_VISIBLE //| WS_BORDER
 			, 0, 0, 0, 0
 			, hDlg
-			, (HMENU)IDC_EDT_REQUEST
+			, (HMENU)IDC_EDT_RESPONSE
 			, hInst
 			, NULL
 		);
-		return hWndGroupBoxRequest;
+
+		return hWndGroupBoxResponse;
 	}
 	int SetGroupBox(const HWND hWnd
 		, const int& x
@@ -40,7 +41,7 @@ public:
 		GroupBox::SetGroupBox(hWnd, x, y, width, height);
 		// the placement of controls in the groupbox is relative to
 		// the x- and y-position of the groupbox
-		SetWindowPos(hWndEdtRequest
+		SetWindowPos(hWndEdtResponse
 			, HWND_TOP
 			, x + 10
 			, y + 20

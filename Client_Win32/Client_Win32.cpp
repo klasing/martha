@@ -424,7 +424,8 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 	static COLORREF rgbWhite = RGB(0xF0, 0xF0, 0xF0);
 	static HBRUSH hBrush = CreateSolidBrush(rgbWhite);
 	static GroupBoxRequest groupBoxRequest;
-	static HWND hWndGroupBoxRequest;
+	static GroupBoxResponse groupBoxResponse;
+	static HWND hWndGroupBoxRequest, hWndGroupBoxResponse;
 		 
 	switch (uMsg)
 	{
@@ -435,6 +436,10 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 		hWndGroupBoxRequest = groupBoxRequest.createGroupBox(hInst
 			, hDlg
 			, IDC_GB_REQUEST
+		);
+		hWndGroupBoxResponse = groupBoxResponse.createGroupBox(hInst
+			, hDlg
+			, IDC_GB_RESPONSE
 		);
 		return (INT_PTR)TRUE;
 	case WM_CTLCOLORDLG:
@@ -450,11 +455,28 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 		SetBkColor(hDC, rgbWhite);
 		return (INT_PTR)hBrush;
 	} // eof WM_CTLCOLORSTATIC
-	case WM_SIZE:
+	case WM_SIZE: 
+	{
+		RECT clientRect;
+		GetClientRect(hDlg, &clientRect);
+		int width_groupbox =
+			clientRect.right / 2 - 20;
+		int height_groupbox =
+			clientRect.bottom - 20;
 		groupBoxRequest.SetGroupBox(hWndGroupBoxRequest
-			, 10, 10, 60, 80
+			, 10
+			, 10
+			, width_groupbox
+			, height_groupbox
+		);
+		groupBoxResponse.SetGroupBox(hWndGroupBoxResponse
+			, clientRect.right / 2 + 10
+			, 10
+			, width_groupbox
+			, height_groupbox
 		);
 		return TRUE;
+	} // eof WM_SIZE
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
