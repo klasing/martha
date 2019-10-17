@@ -158,6 +158,7 @@
     <ClInclude Include="GroupBox.hpp" />
     <ClInclude Include="GroupBoxAccess.hpp" />
     <ClInclude Include="GroupBoxConnect.hpp" />
+    <ClInclude Include="GroupBoxRequest.hpp" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="StatusBar.hpp" />
   </ItemGroup>

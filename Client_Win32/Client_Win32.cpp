@@ -52,7 +52,7 @@ BOOL				InitInstance(HINSTANCE, const int&, const PWCHAR&, const PWCHAR&);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	ConnectProc(HWND, UINT, WPARAM, LPARAM);
-//INT_PTR CALLBACK	DlgProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK	DlgProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	LoginProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	ForgotPasswordProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	RegisterProc(HWND, UINT, WPARAM, LPARAM);
@@ -212,7 +212,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
 	static PSTRUCTCLIENT pStructClient = new STRUCTCLIENT;
-	//static HWND hWndDlg;
+	static HWND hWndDlg;
 
 	switch (uMsg)
 	{
@@ -220,11 +220,11 @@ LRESULT CALLBACK WndProc(HWND hWnd
 	{
 		// create a status bar
 		oStatusBar.createStatusBar(hInst, hWnd);
-		//hWndDlg = CreateDialog(hInst
-		//	, L"SUBWINDOW"
-		//	, hWnd
-		//	, DlgProc
-		//);
+		hWndDlg = CreateDialog(hInst
+			, L"SUBWINDOW"
+			, hWnd
+			, DlgProc
+		);
 		size_t len = 0;
 		pStructClient->hWnd = hWnd;
 
@@ -264,15 +264,15 @@ LRESULT CALLBACK WndProc(HWND hWnd
 	} // eof WM_NCCREATE
 	case WM_SIZE:
 		oStatusBar.SetStatusBar(hWnd);
-		//RECT rectClient;
-		//GetClientRect(hWnd, &rectClient);
+		RECT rectClient;
+		GetClientRect(hWnd, &rectClient);
 		// subtract statusbar height from bottom
-		//SetWindowPos(hWndDlg
-		//	, HWND_TOP
-		//	, rectClient.left, rectClient.top
-		//	, rectClient.right, rectClient.bottom - 22
-		//	, SWP_SHOWWINDOW
-		//);
+		SetWindowPos(hWndDlg
+			, HWND_TOP
+			, rectClient.left, rectClient.top
+			, rectClient.right, rectClient.bottom - 22
+			, SWP_SHOWWINDOW
+		);
 		pStructClient->hWnd = hWnd;
 		return 0;
 	case WM_COMMAND:
@@ -408,6 +408,63 @@ LRESULT CALLBACK WndProc(HWND hWnd
 	} // eof swtich
 
 	return 0;
+}
+
+//****************************************************************************
+//*                     DlgProc
+//****************************************************************************
+INT_PTR CALLBACK DlgProc(HWND hDlg
+	, UINT uMsg
+	, WPARAM wParam
+	, LPARAM lParam
+)
+{
+	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
+	// create brush for background color
+	static COLORREF rgbWhite = RGB(0xF0, 0xF0, 0xF0);
+	static HBRUSH hBrush = CreateSolidBrush(rgbWhite);
+	static GroupBoxRequest groupBoxRequest;
+	static HWND hWndGroupBoxRequest;
+		 
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+		// necessary for the message loop to find this dialog, when found
+		// the message pump can dispatch messages to this dialog
+		SetWindowText(hDlg, L"DlgProc");
+		hWndGroupBoxRequest = groupBoxRequest.createGroupBox(hInst
+			, hDlg
+			, IDC_GB_REQUEST
+		);
+		return (INT_PTR)TRUE;
+	case WM_CTLCOLORDLG:
+		// set background color
+		return (INT_PTR)hBrush;
+	case WM_CTLCOLORSTATIC: {
+		// background color for groupbox title
+		// must be the same as the background color for the dialog, 
+		// i.d. rgb is white
+		HDC hDC = (HDC)wParam;
+		// text color: rgb is black
+		SetTextColor(hDC, RGB(0x0, 0x0, 0x0));
+		SetBkColor(hDC, rgbWhite);
+		return (INT_PTR)hBrush;
+	} // eof WM_CTLCOLORSTATIC
+	case WM_SIZE:
+		groupBoxRequest.SetGroupBox(hWndGroupBoxRequest
+			, 10, 10, 60, 80
+		);
+		return TRUE;
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		default:
+			return (INT_PTR)FALSE;
+		} // eof switch
+		break;
+	} // eof switch
+
+	return (INT_PTR)FALSE;
 }
 
 //****************************************************************************
@@ -649,101 +706,6 @@ INT_PTR CALLBACK ConnectProc(HWND hDlg
 
 	return (INT_PTR)FALSE;
 }
-
-//****************************************************************************
-//*                     DlgProc
-//****************************************************************************
-//INT_PTR CALLBACK DlgProc(HWND hDlg
-//	, UINT uMsg
-//	, WPARAM wParam
-//	, LPARAM lParam
-//)
-//{
-//	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-//	// create brush for background color
-//	static COLORREF rgbWhite = RGB(0xFF, 0xFF, 0xFF);
-//	static HBRUSH hBrush = CreateSolidBrush(rgbWhite);
-//	static HWND hWndConnect, hWndAccess, hWndDownload, hWndUpload;
-//	static GroupBox oGroupBox;
-//	static GroupBoxConnect oGroupBoxConnect;
-//	static GroupBoxAccess oGroupBoxAccess;
-//	static PSTRUCTDLG pStructDlg = new STRUCTDLG;
-//
-//
-//	switch (uMsg)
-//	{
-//	case WM_INITDIALOG:
-//		// necessary for the message loop to find this dialog, when found
-//		// the message pump can dispatch messages to this dialog
-//		SetWindowText(hDlg, L"DlgProc");
-//		// create groupbox
-//		//hWndConnect = oGroupBoxConnect.createGroupBox(hInst
-//		//	, hDlg
-//		//	, IDC_GB_CONNECT
-//		//);
-//		//hWndAccess = oGroupBoxAccess.createGroupBox(hInst
-//		//	, hDlg
-//		//	, IDC_GB_ACCESS
-//		//);
-//		//hWndDownload = oGroupBox.createGroupBox(hInst, hWnd, IDC_GB_DOWNLOAD);
-//		//hWndUpload = oGroupBox.createGroupBox(hInst, hWnd, IDC_GB_UPLOAD);
-//		pStructDlg->hDlg = hDlg;
-//		return (INT_PTR)TRUE;
-//	case WM_CTLCOLORDLG:
-//		// set background color
-//		return (INT_PTR)hBrush;
-//	case WM_CTLCOLORSTATIC: {
-//		// background color for groupbox title
-//		// must be the same as the background color for the dialog, 
-//		// i.d. rgb is white
-//		HDC hDC = (HDC)wParam;
-//		// text color: rgb is black
-//		SetTextColor(hDC, RGB(0x0, 0x0, 0x0));
-//		SetBkColor(hDC, rgbWhite);
-//		return (INT_PTR)hBrush;
-//	} // eof WM_CTLCOLORSTATIC
-//	case WM_SIZE:
-//		//oGroupBoxConnect.SetGroupBox(hWndConnect, 10, 20, 165, 110);
-//		//oGroupBoxAccess.SetGroupBox(hWndAccess, 185, 20, 100, 110);
-//		//oGroupBox.SetGroupBox(hWndDownload, 120, 20, 100, 50);
-//		//oGroupBox.SetGroupBox(hWndUpload, 120, 80, 100, 50);
-//		return TRUE;
-//	case WM_COMMAND:
-//		switch (LOWORD(wParam))
-//		{
-//		//case IDC_BTN_LOGIN:
-//		//	OutputDebugString(L"IDC_BTN_LOGIN\n");
-//		//	DialogBoxParam(hInst
-//		//		, L"MODALWINDOW"//MAKEINTRESOURCE(IDD_LOGINBOX)
-//		//		, hDlg
-//		//		, LoginProc
-//		//		, (LPARAM)pStructDlg
-//		//	);
-//		//	break;
-//		//case IDC_BTN_REGISTER:
-//		//	OutputDebugString(L"IDC_BTN_REGISTER\n");
-//		//	DialogBoxParam(hInst
-//		//		, L"MODALWINDOW"
-//		//		, hDlg
-//		//		, RegisterProc
-//		//		, (LPARAM)pStructDlg
-//		//	);
-//		//	break;
-//		} // eof switch
-//		break;
-//	case IDM_FORGOTPASSWORD:
-//		OutputDebugString(L"***IDM_FORGOTPASSWORD\n");
-//		DialogBoxParam(hInst
-//			, L"MODALWINDOW"//MAKEINTRESOURCE(IDD_FORGOTPASSWORDBOX)
-//			, hDlg
-//			, ForgotPasswordProc
-//			, (LPARAM)pStructDlg
-//		);
-//		break;
-//	} // eof switch
-//
-//	return (INT_PTR)FALSE;
-//}
 
 //****************************************************************************
 //*                     LoginProc
@@ -1538,6 +1500,42 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 	return (INT_PTR)FALSE;
 }
 
+//***************************************************************************
+//*                    stream_buf
+//***************************************************************************
+class stream_buf : public std::streambuf
+{
+	char* pBuf = new char[BUFFER_MAX];
+	int iBuf = 0;
+public:
+	stream_buf()
+	{
+		clear_and_reset_buf();
+	}
+	void clear_and_reset_buf()
+	{
+		for (int i = 0; i < BUFFER_MAX; ++i)
+			pBuf[i] = '\0';
+		iBuf = 0;
+	}
+	char* getBuf() const
+	{ 
+		return pBuf;
+	}
+protected:
+	virtual int_type overflow(int_type c)
+	{
+		if (c != EOF && iBuf < BUFFER_MAX - 2)
+		{
+			if (iBuf == BUFFER_MAX - 2)
+				pBuf[iBuf++] = '\n';
+			else
+				pBuf[iBuf++] = c;
+		}
+		return c;
+	}
+};
+
 //////////////////////////////////////////////////////////////////////////////
 //                      BOOST PART
 //////////////////////////////////////////////////////////////////////////////
@@ -1663,6 +1661,8 @@ class session : public std::enable_shared_from_this<session>
 	int version_;
 	PSTRUCTCLIENT pStructClient_;
 	std::shared_ptr<std::string const> doc_root_;
+
+	stream_buf sb;
 
 public:
 	// Objects are constructed with a strand to
@@ -1852,6 +1852,13 @@ public:
 				beast::bind_front_handler(
 					&session::on_write,
 					shared_from_this()));
+
+			// for logging
+			sb.clear_and_reset_buf();
+			std::ostream my_cout_for_request(&sb);
+			my_cout_for_request << "request:" << std::endl
+				<< req_with_empty_body_ << std::endl;
+			OutputDebugStringA(sb.getBuf());
 		}
 		if (mode_ == "access")
 		{
@@ -1859,6 +1866,13 @@ public:
 				beast::bind_front_handler(
 					&session::on_write,
 					shared_from_this()));
+
+			// for logging
+			sb.clear_and_reset_buf();
+			std::ostream my_cout_for_request(&sb);
+			my_cout_for_request << "request:" << std::endl
+				<< req_with_string_body_ << std::endl;
+			OutputDebugStringA(sb.getBuf());
 		}
 		if (mode_ == "download")
 		{
@@ -1866,6 +1880,13 @@ public:
 				beast::bind_front_handler(
 					&session::on_write,
 					shared_from_this()));
+
+			// for logging
+			sb.clear_and_reset_buf();
+			std::ostream my_cout_for_request(&sb);
+			my_cout_for_request << "request:" << std::endl
+				<< req_with_empty_body_ << std::endl;
+			OutputDebugStringA(sb.getBuf());
 		}
 		if (mode_ == "upload")
 		{
@@ -1873,6 +1894,14 @@ public:
 				beast::bind_front_handler(
 					&session::on_write,
 					shared_from_this()));
+
+			// TODO: won't compile
+			// for logging
+			//sb.clear_and_reset_buf();
+			//std::ostream my_cout_for_request(&sb);
+			//my_cout_for_request << "request:" << std::endl
+			//	<< req_with_file_body_ << std::endl;
+			//OutputDebugStringA(sb.getBuf());
 		}
 	}
 
@@ -1907,6 +1936,12 @@ public:
 			pStructClient_->bConnected = true;
 		// Write the message to standard out
 		//std::cout << res_ << std::endl;
+		// for logging
+		sb.clear_and_reset_buf();
+		std::ostream my_cout_for_response(&sb);
+		my_cout_for_response << "response:" << std::endl
+			<< res_ << std::endl;
+		OutputDebugStringA(sb.getBuf());
 
 		std::string response_body = res_.body();
 		pStructClient_->response_body = response_body;

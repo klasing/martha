@@ -5,10 +5,11 @@
 #define IDC_ACCELERATOR					30001
 #define IDC_MENU						30002
 #define IDC_STATUSBAR					30004
-#define IDC_GB_CONNECT					30005
-#define IDC_GB_ACCESS					30006
-#define IDC_GB_DOWNLOAD					30007
-#define IDC_GB_UPLOAD					30008
+//#define IDC_GB_CONNECT				30005
+//#define IDC_GB_ACCESS					30006
+//#define IDC_GB_DOWNLOAD				30007
+//#define IDC_GB_UPLOAD					30008
+#define IDC_GB_REQUEST					30005
 #define IDC_EDT_DOMAIN					30009
 #define IDC_EDT_HOST					30010
 #define IDC_EDT_PORT					30011

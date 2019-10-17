@@ -27,11 +27,15 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #include <CommCtrl.h>
 
 // C RunTime Header Files
+#include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <iostream>
+#include <locale>
 #include <malloc.h>
 #include <memory.h>
 #include <stdlib.h>
+#include <streambuf>
 #include <string>
 #include <strsafe.h>
 #include <tchar.h>

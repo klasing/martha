@@ -36,6 +36,9 @@
     <ClInclude Include="GroupBoxAccess.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GroupBoxRequest.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Client_Win32.rc">
