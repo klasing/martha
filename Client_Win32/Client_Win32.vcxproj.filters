@@ -27,13 +27,7 @@
     <ClInclude Include="GroupBox.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GroupBoxConnect.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="StatusBar.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GroupBoxAccess.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GroupBoxRequest.hpp">

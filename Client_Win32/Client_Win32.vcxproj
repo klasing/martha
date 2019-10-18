@@ -156,8 +156,6 @@
     <ClInclude Include="Client_Win32.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GroupBox.hpp" />
-    <ClInclude Include="GroupBoxAccess.hpp" />
-    <ClInclude Include="GroupBoxConnect.hpp" />
     <ClInclude Include="GroupBoxRequest.hpp" />
     <ClInclude Include="GroupBoxResponse.hpp" />
     <ClInclude Include="Resource.h" />
