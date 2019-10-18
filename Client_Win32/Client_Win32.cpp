@@ -32,8 +32,9 @@ typedef struct tagSTRUCTCLIENT {
 	std::string user_email_address = "";
 	std::string user_password = "";
 	std::string user_code = "";
-	std::string response;		// contains message from server
-	std::string response_body;	// contains message from server
+	std::string response_body;		// contains message from server
+	std::string log_message_req;	// contains a request to be logged on screen
+	std::string log_message_res;	// contains a response to be logged on screen
 } STRUCTCLIENT, * PSTRUCTCLIENT;
 
 //****************************************************************************
@@ -399,6 +400,7 @@ LRESULT CALLBACK WndProc(HWND hWnd
 					, pszTextBuffer
 				);
 			}
+		SendMessage(hWndDlg, IDM_LOGGING, (WPARAM)0, (LPARAM)pStructClient);
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -483,6 +485,15 @@ INT_PTR CALLBACK DlgProc(HWND hDlg
 		default:
 			return (INT_PTR)FALSE;
 		} // eof switch
+		break;
+	case IDM_LOGGING:
+		OutputDebugString(L"IDM_LOGGING\n");
+		groupBoxRequest.setGroupBoxText(
+			((PSTRUCTCLIENT)lParam)->log_message_req
+		);
+		groupBoxResponse.setGroupBoxText(
+			((PSTRUCTCLIENT)lParam)->log_message_res
+		);
 		break;
 	} // eof switch
 
@@ -1881,6 +1892,7 @@ public:
 			my_cout_for_request << "request:" << std::endl
 				<< req_with_empty_body_ << std::endl;
 			OutputDebugStringA(sb.getBuf());
+			pStructClient_->log_message_req = sb.getBuf();
 		}
 		if (mode_ == "access")
 		{
@@ -1895,6 +1907,7 @@ public:
 			my_cout_for_request << "request:" << std::endl
 				<< req_with_string_body_ << std::endl;
 			OutputDebugStringA(sb.getBuf());
+			pStructClient_->log_message_req = sb.getBuf();
 		}
 		if (mode_ == "download")
 		{
@@ -1909,6 +1922,7 @@ public:
 			my_cout_for_request << "request:" << std::endl
 				<< req_with_empty_body_ << std::endl;
 			OutputDebugStringA(sb.getBuf());
+			pStructClient_->log_message_req = sb.getBuf();
 		}
 		if (mode_ == "upload")
 		{
@@ -1917,13 +1931,16 @@ public:
 					&session::on_write,
 					shared_from_this()));
 
-			// TODO: won't compile
 			// for logging
-			//sb.clear_and_reset_buf();
-			//std::ostream my_cout_for_request(&sb);
+			sb.clear_and_reset_buf();
+			std::ostream my_cout_for_request(&sb);
+			// TODO: won't compile
 			//my_cout_for_request << "request:" << std::endl
 			//	<< req_with_file_body_ << std::endl;
-			//OutputDebugStringA(sb.getBuf());
+			my_cout_for_request << "request:" << std::endl
+				<< "TODO: won't compile" << std::endl;
+			OutputDebugStringA(sb.getBuf());
+			pStructClient_->log_message_req = sb.getBuf();
 		}
 	}
 
@@ -1964,6 +1981,7 @@ public:
 		my_cout_for_response << "response:" << std::endl
 			<< res_ << std::endl;
 		OutputDebugStringA(sb.getBuf());
+		pStructClient_->log_message_res = sb.getBuf();
 
 		std::string response_body = res_.body();
 		pStructClient_->response_body = response_body;

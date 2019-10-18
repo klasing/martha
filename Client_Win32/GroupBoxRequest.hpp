@@ -1,5 +1,12 @@
 #pragma once
 #include "GroupBox.hpp"
+
+//****************************************************************************
+//*                     global
+//****************************************************************************
+extern const size_t BUFFER_MAX;
+extern PWCHAR pszTextBuffer;
+
 //****************************************************************************
 //*                     GroupBoxRequest
 //****************************************************************************
@@ -28,6 +35,13 @@ public:
 			, hInst
 			, NULL
 		);
+		// set the font of the edit control to a more typical system GUI font
+		SendMessage(hWndEdtRequest
+			, WM_SETFONT
+			, (WPARAM)GetStockObject(DEFAULT_GUI_FONT)
+			, (LPARAM)0
+		);
+
 		return hWndGroupBoxRequest;
 	}
 	int SetGroupBox(const HWND hWnd
@@ -50,5 +64,17 @@ public:
 		);
 
 		return 0;
+	}
+	VOID setGroupBoxText(const std::string log_message_req)
+	{
+		std::wstring wstring = std::wstring(log_message_req.begin()
+			, log_message_req.end()
+		);
+		const wchar_t* pszText = wstring.c_str();
+		SendMessage(hWndEdtRequest
+			, WM_SETTEXT
+			, (WPARAM)0
+			, (LPARAM)pszText
+		);
 	}
 };
