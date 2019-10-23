@@ -1538,7 +1538,8 @@ INT_PTR CALLBACK UploadProc(HWND hDlg
 //***************************************************************************
 class stream_buf : public std::streambuf
 {
-	char* pBuf = new char[BUFFER_MAX];
+	const size_t BUFFER_MAX_EX = 512;
+	char* pBuf = new char[BUFFER_MAX_EX];
 	int iBuf = 0;
 public:
 	stream_buf()
@@ -1547,7 +1548,7 @@ public:
 	}
 	void clear_and_reset_buf()
 	{
-		for (int i = 0; i < BUFFER_MAX; ++i)
+		for (int i = 0; i < BUFFER_MAX_EX; ++i)
 			pBuf[i] = '\0';
 		iBuf = 0;
 	}
@@ -1558,9 +1559,9 @@ public:
 protected:
 	virtual int_type overflow(int_type c)
 	{
-		if (c != EOF && iBuf < BUFFER_MAX - 2)
+		if (c != EOF && iBuf < BUFFER_MAX_EX - 2)
 		{
-			if (iBuf == BUFFER_MAX - 2)
+			if (iBuf == BUFFER_MAX_EX - 2)
 				pBuf[iBuf++] = '\n';
 			else
 				pBuf[iBuf++] = c;
@@ -1753,6 +1754,7 @@ public:
 			req_with_empty_body_.target(target_);
 			req_with_empty_body_.set(http::field::host, host_);
 			req_with_empty_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+			req_with_empty_body_.set(http::field::from, user_email_address);
 		}
 
 		if (mode_ == "access")
@@ -1889,8 +1891,7 @@ public:
 			// for logging
 			sb.clear_and_reset_buf();
 			std::ostream my_cout_for_request(&sb);
-			my_cout_for_request << "request:" << std::endl
-				<< req_with_empty_body_ << std::endl;
+			my_cout_for_request << req_with_empty_body_ << std::endl;
 			OutputDebugStringA(sb.getBuf());
 			pStructClient_->log_message_req = sb.getBuf();
 		}
@@ -1978,8 +1979,7 @@ public:
 		// for logging
 		sb.clear_and_reset_buf();
 		std::ostream my_cout_for_response(&sb);
-		my_cout_for_response << "response:" << std::endl
-			<< res_ << std::endl;
+		my_cout_for_response << res_ << std::endl;
 		OutputDebugStringA(sb.getBuf());
 		pStructClient_->log_message_res = sb.getBuf();
 

@@ -45,12 +45,16 @@ typedef std::string td_current_gmt
 , td_remote_endpoint
 , td_request
 , td_response
-, td_elapsed_time;
+, td_elapsed_time
+, td_user_agent
+, td_user;
 typedef boost::tuples::tuple<td_current_gmt
 	, td_remote_endpoint
 	, td_request
 	, td_response
-	, td_elapsed_time> tuple_logging;
+	, td_elapsed_time
+	, td_user_agent
+	, td_user> tuple_logging;
 
 //****************************************************************************
 //*                     ServerLogging
@@ -113,10 +117,18 @@ public:
 			sEnd = str.find("#", sBegin);
 			std::string response = str.substr(sBegin, sEnd - sBegin);
 			// 5
+			sBegin = sEnd + 1;
+			sEnd = str.find("#", sBegin);
+			std::string elapsed_time = str.substr(sBegin, sEnd - sBegin);
+			// 6
+			sBegin = sEnd + 1;
+			sEnd = str.find("#", sBegin);
+			std::string user_agent = str.substr(sBegin, sEnd - sBegin);
+			// 7
 			// last character on a line is ')'
 			sBegin = sEnd + 1;
 			sEnd = str.find(")", sBegin);
-			std::string elapsed_time = str.substr(sBegin, sEnd - sBegin);
+			std::string user = str.substr(sBegin, sEnd - sBegin);
 			// create tuple from parsed log data out of file
 			tlin = boost::tuples::make_tuple(
 				current_gmt
@@ -124,6 +136,8 @@ public:
 				, request
 				, response
 				, elapsed_time
+				, user_agent
+				, user
 			);
 			// set tuple into vector
 			vector_with_tuples.push_back(tlin);
@@ -148,13 +162,17 @@ public:
 //remote endpoint...: %s\n\
 //request...........: %s\n\
 //response..........: %s\n\
-//elapsed time......: %s (ms)\n"
+//elapsed time......: %s (ms)\n
+//user agent........: %s\n"
+//user..............: %s\n"
 //				, ++i
 //				, tlin.get<0>().c_str()
 //				, tlin.get<1>().c_str()
 //				, tlin.get<2>().c_str()
 //				, tlin.get<3>().c_str()
 //				, tlin.get<4>().c_str()
+//              , tlin.get<5>().c_str()
+//              , tlin.get<6>().c_str()
 //			);
 //			OutputDebugString(pszText);
 		}
@@ -201,6 +219,8 @@ public:
 		, const std::string& request
 		, const std::string& response
 		, const boost::timer::cpu_times& timer_elapsed
+		, const std::string& user_agent
+		, const std::string& user
 	)
 	{
 		// get current gmt
@@ -213,6 +233,8 @@ public:
 			, request
 			, response
 			, elapsed_time
+			, user_agent
+			, user
 		};
 		// write tuple to file
 		write_logfile(tl);

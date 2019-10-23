@@ -19,12 +19,16 @@ typedef std::string td_current_gmt
 , td_remote_endpoint
 , td_request
 , td_response
-, td_elapsed_time;
+, td_elapsed_time
+, td_user_agent
+, td_user;
 typedef boost::tuples::tuple<td_current_gmt
 	, td_remote_endpoint
 	, td_request
 	, td_response
-	, td_elapsed_time> tuple_logging;
+	, td_elapsed_time
+	, td_user_agent
+	, td_user> tuple_logging;
 // typedef for http_server_async thread
 typedef struct tagSTRUCTSERVER {
 	PVOID pServerLogging = nullptr;
@@ -483,9 +487,10 @@ INT_PTR CALLBACK Tab1Proc(HWND hDlg
 		// add column to listview
 		addColumn(hInst
 			, hWndLV
-			, 5
+			, 7
 			, IDS_LVLOG_COL0, IDS_LVLOG_COL1, IDS_LVLOG_COL2
-			, IDS_LVLOG_COL3, IDS_LVLOG_COL4
+			, IDS_LVLOG_COL3, IDS_LVLOG_COL4, IDS_LVLOG_COL5
+			, IDS_LVLOG_COL6
 		);
 		return (INT_PTR)TRUE;
 	case WM_SIZE:
@@ -530,6 +535,12 @@ INT_PTR CALLBACK Tab1Proc(HWND hDlg
 			addListViewItem(hWndLV
 				, ptl->get<4>().c_str()
 				, iItem, 4);
+			addListViewItem(hWndLV
+				, ptl->get<5>().c_str()
+				, iItem, 5);
+			addListViewItem(hWndLV
+				, ptl->get<6>().c_str()
+				, iItem, 6);
 			++iItem;
 		}
 		break;
@@ -819,6 +830,17 @@ filter_start_line(const std::string& req_message
 }
 
 //****************************************************************************
+//*                     filter_user_agent
+//****************************************************************************
+//auto
+//filter_user_agent(const std::string& req_message
+//) -> std::string
+//{
+//	// return value from user_agent field
+//	return "*** user_agent ***"
+//}
+
+//****************************************************************************
 //*                     store_new_log
 //****************************************************************************
 template <class T>
@@ -828,6 +850,8 @@ store_new_log(std::shared_ptr<ServerLogging> pServerLogging
 	, std::string requestLogMsg
 	, T res
 	, std::shared_ptr<boost::timer::cpu_timer> pTimer
+	, std::string user_agent
+	, std::string user
 ) -> void
 {
 	// turn the response message into a string
@@ -842,6 +866,8 @@ store_new_log(std::shared_ptr<ServerLogging> pServerLogging
 		, requestLogMsg
 		, responseLogMsg
 		, pTimer->elapsed()
+		, user_agent
+		, user
 	);
 }
 
@@ -855,6 +881,8 @@ store_new_log(std::shared_ptr<ServerLogging> pServerLogging
 	, std::string requestLogMsg
 	, std::string responseLogMsg
 	, std::shared_ptr<boost::timer::cpu_timer> pTimer
+	, std::string user_agent
+	, std::string user
 ) -> void
 {
 	// stop timer
@@ -863,6 +891,8 @@ store_new_log(std::shared_ptr<ServerLogging> pServerLogging
 		, requestLogMsg
 		, responseLogMsg
 		, pTimer->elapsed()
+		, user_agent
+		, user
 	);
 }
 
@@ -905,11 +935,17 @@ template<
 		write_message_to_string(req, buff);
 		std::string req_message = beast::buffers_to_string(buff.data());
 		std::string requestLogMsg = filter_start_line(req_message);
+		std::string user_agent = 
+			static_cast<std::string>(req[http::field::user_agent]);
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);
 		store_new_log(pServerLogging
 			, pRemoteEndpoint
 			, requestLogMsg
 			, res
 			, pResponseTimer
+			, user_agent
+			, user
 		);
 
 		return res;
@@ -932,11 +968,17 @@ template<
 		write_message_to_string(req, buff);
 		std::string req_message = beast::buffers_to_string(buff.data());
 		std::string requestLogMsg = filter_start_line(req_message);
+		std::string user_agent = 
+			static_cast<std::string>(req[http::field::user_agent]);
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);
 		store_new_log(pServerLogging
 			, pRemoteEndpoint
 			, requestLogMsg
 			, res
 			, pResponseTimer
+			, user_agent
+			, user
 		);
 
 		return res;
@@ -959,11 +1001,17 @@ template<
 		write_message_to_string(req, buff);
 		std::string req_message = beast::buffers_to_string(buff.data());
 		std::string requestLogMsg = filter_start_line(req_message);
+		std::string user_agent = 
+			static_cast<std::string>(req[http::field::user_agent]);
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);
 		store_new_log(pServerLogging
 			, pRemoteEndpoint
 			, requestLogMsg
 			, res
 			, pResponseTimer
+			, user_agent
+			, user
 		);
 
 		return res;
@@ -979,6 +1027,8 @@ template<
 	write_message_to_string(req, buff);
 	std::string req_message = beast::buffers_to_string(buff.data());
 	std::string requestLogMsg = filter_start_line(req_message);
+	std::string user_agent = 
+		static_cast<std::string>(req[http::field::user_agent]);
 
 	// Make sure we can handle the method
 	if (req.method() != http::verb::connect &&
@@ -990,6 +1040,9 @@ template<
 		req.method() != http::verb::put &&
 		req.method() != http::verb::trace)
 		return send(bad_request("Unknown HTTP-method"));
+
+	//std::string user_agent =
+	//	static_cast<std::string>(req[http::field::user_agent]);
 
 	// Respond to a CONNECT request
 	if (req.method() == http::verb::connect) {
@@ -1014,6 +1067,8 @@ template<
 		//    from a browser (a file that renders the browser's layout)
 		std::string user_agent =
 			static_cast<std::string>(req[http::field::user_agent]);
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);
 		if (user_agent == APP_VALUE_USER_AGENT)
 		{
 			// its a download request for a file from an app. (1)
@@ -1056,6 +1111,8 @@ template<
 				, requestLogMsg
 				, responseLogmsg
 				, pResponseTimer
+				, user_agent
+				, user
 			);
 			return send(std::move(res));
 		}
@@ -1121,6 +1178,8 @@ template<
 				, requestLogMsg
 				, responseLogmsg
 				, pResponseTimer
+				, user_agent
+				, user
 			);
 			return send(std::move(res));
 		}
@@ -1129,6 +1188,10 @@ template<
 	// Respond to a HEAD request
 	if (req.method() == http::verb::head) {
 		OutputDebugString(L"-> HEAD message received\n");
+		std::string user_agent =
+			static_cast<std::string>(req[http::field::user_agent]);;
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);;
 		// send a response without a payload
 		std::string path = path_cat(doc_root, req.target());
 		http::response<http::empty_body> res{ http::status::ok, req.version() };
@@ -1139,6 +1202,8 @@ template<
 			, requestLogMsg
 			, res
 			, pResponseTimer
+			, user_agent
+			, user
 		);
 		return send(std::move(res));
 	}
@@ -1158,6 +1223,8 @@ template<
 
 		std::string user_agent =
 			static_cast<std::string>(req[http::field::user_agent]);
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);
 		std::string target =
 			static_cast<std::string>(req.target());
 		// check if the POST message is concerning a login
@@ -1244,11 +1311,17 @@ template<
 				, requestLogMsg
 				, res
 				, pResponseTimer
+				, user_agent
+				, user
 			);
 			return send(std::move(res));
 		}
 		else
 		{
+			std::string user_agent =
+				static_cast<std::string>(req[http::field::user_agent]);
+			std::string user =
+				static_cast<std::string>(req[http::field::from]);
 			// assume its a request from a browser
 			std::string file_name = "";
 			std::string payload = "";
@@ -1271,6 +1344,8 @@ template<
 				, requestLogMsg
 				, res
 				, pResponseTimer
+				, user_agent
+				, user
 			);
 			return send(std::move(res));
 		}
@@ -1279,6 +1354,10 @@ template<
 	// Respond to a PUT request
 	if (req.method() == http::verb::put) {
 		OutputDebugString(L"-> PUT message received\n");
+		std::string user_agent =
+			static_cast<std::string>(req[http::field::user_agent]);
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);
 		// remove all the \r-characters (return) from the req.body()
 		boost::erase_all(req.body(), "\r");
 		std::string file_name = static_cast<std::string>(req.target());
@@ -1296,6 +1375,8 @@ template<
 			, requestLogMsg
 			, res
 			, pResponseTimer
+			, user_agent
+			, user
 		);
 		return send(std::move(res));
 	}
@@ -1303,11 +1384,15 @@ template<
 	// Respond to a TRACE request
 	if (req.method() == http::verb::trace) {
 		OutputDebugString(L"-> TRACE message received\n");
+		std::string user_agent =
+			static_cast<std::string>(req[http::field::user_agent]);
+		std::string user =
+			static_cast<std::string>(req[http::field::from]);
 		// the request is echoed back to the client,
 		// inside the payload of the response
 		// in this application a non-standard comment is added
 		http::string_body::value_type body;
-		body = std::string("server is alive\n")
+		body = std::string("server is alive\r\n")
 			+ req_message;
 		// prepare a response message
 		http::response<http::string_body> res{ http::status::ok, req.version() };
@@ -1323,6 +1408,8 @@ template<
 			, requestLogMsg
 			, res
 			, pResponseTimer
+			, user_agent
+			, user
 		);
 		// send the response message
 		return send(std::move(res));
@@ -1587,6 +1674,8 @@ public:
 			, "start server"
 			, "server alive"
 			, pTimer_->elapsed()
+			, ""
+			, ""
 		);
 		do_accept();
 	}
@@ -1670,6 +1759,8 @@ DWORD WINAPI http_server_async(LPVOID lpVoid)
 		, "sqlite3 db startup"
 		, "sqlite3 db started"
 		, timer.elapsed()
+		, ""
+		, ""
 	);
 
 	// The io_context is required for all I/O
@@ -1727,6 +1818,8 @@ DWORD WINAPI http_server_async(LPVOID lpVoid)
 		, "stop server"
 		, "server dead"
 		, timer.elapsed()
+		, ""
+		, ""
 	);
 
 	return (DWORD)EXIT_SUCCESS;

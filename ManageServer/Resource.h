@@ -34,3 +34,5 @@
 #define IDS_LVLOG_COL2				30058
 #define IDS_LVLOG_COL3				30059
 #define IDS_LVLOG_COL4				30060
+#define IDS_LVLOG_COL5				30061
+#define IDS_LVLOG_COL6				30062
