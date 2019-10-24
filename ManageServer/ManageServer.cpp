@@ -744,15 +744,40 @@ write_message_to_string(Message& message
 // browser form submit for a file upload 
 // delivered within a POST message 
 auto
-filter_filename_payload_from_form_submit(
-	const std::string req_body,
-	std::string& file_name,
-	std::string& payload
+filter_filename_payload_from_form_submit(const std::string req_body
+	, std::string& user_email_address
+	, std::string& file_name
+	, std::string& payload
 ) -> void
 {
+	OutputDebugStringA(req_body.c_str());
+	// copy the request body into the payload, the payload
+	// will be searched and edited
+	payload = req_body;
+
 	int sbegin = 0;
 	int send = 0;
 	std::string string_to_search_for = "";
+	// filter user_email_address
+	string_to_search_for = "name=\"user_email_address\"";
+	sbegin = payload.find(string_to_search_for);
+	sbegin += string_to_search_for.length();
+	send = sbegin;
+	// look for return, two times, using sbegin as an offset
+	string_to_search_for = "\r";
+	for (int i = 0; i < 2; i++) {
+		send = payload.find(string_to_search_for, sbegin);
+		sbegin = send + 1;
+	}
+	// remove everything up to the send position,
+	// plus 2 for a remaining \r\n
+	send += 2;
+	payload.erase(0, send);
+	// now look for another return, this will be the end
+	// of the user_email_address value
+	send = payload.find(string_to_search_for, 0);
+	user_email_address = payload.substr(0, send);
+
 	// filter file_name
 	// look for: filename="
 	string_to_search_for = "filename=\"";
@@ -774,7 +799,7 @@ filter_filename_payload_from_form_submit(
 
 	// copy the request body into the payload, the payload
 	// will be searched and edited
-	payload = req_body;
+	//payload = req_body;
 	// look for: ------WebKitFormBoundary
 	string_to_search_for = "------WebKitFormBoundary";
 	send = payload.find(string_to_search_for);
@@ -828,17 +853,6 @@ filter_start_line(const std::string& req_message
 	// return the first line of a request message
 	return req_message.substr(0, req_message.find('\r'));
 }
-
-//****************************************************************************
-//*                     filter_user_agent
-//****************************************************************************
-//auto
-//filter_user_agent(const std::string& req_message
-//) -> std::string
-//{
-//	// return value from user_agent field
-//	return "*** user_agent ***"
-//}
 
 //****************************************************************************
 //*                     store_new_log
@@ -1320,15 +1334,17 @@ template<
 		{
 			std::string user_agent =
 				static_cast<std::string>(req[http::field::user_agent]);
-			std::string user =
-				static_cast<std::string>(req[http::field::from]);
+			//std::string user =
+			//	static_cast<std::string>(req[http::field::from]);
 			// assume its a request from a browser
+			std::string user = "";
 			std::string file_name = "";
 			std::string payload = "";
 			filter_filename_payload_from_form_submit(
-				static_cast<std::string>(req.body()),
-				file_name,
-				payload
+				static_cast<std::string>(req.body())
+				, user
+				, file_name
+				, payload
 			);
 			save_to_disk(file_name, payload);
 			// prepare a response message

@@ -1770,6 +1770,7 @@ public:
 			req_with_string_body_.version(version_);
 			req_with_string_body_.set(http::field::host, host_);
 			req_with_string_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+			req_with_string_body_.set(http::field::from, user_email_address);
 			req_with_string_body_.set(http::field::content_type, "application/x-www-form-urlencoded");
 			req_with_string_body_.content_length(size);
 			req_with_string_body_.body() = body;
@@ -1784,6 +1785,7 @@ public:
 			req_with_empty_body_.target(target_);
 			req_with_empty_body_.set(http::field::host, host_);
 			req_with_empty_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+			req_with_empty_body_.set(http::field::from, user_email_address);
 		}
 
 		if (mode_ == "upload")
@@ -1829,6 +1831,7 @@ public:
 			req_with_file_body_.version(version_);
 			req_with_file_body_.set(http::field::host, host_);
 			req_with_file_body_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+			req_with_file_body_.set(http::field::from, user_email_address);
 			req_with_file_body_.set(http::field::content_type, mime_type(path));
 			req_with_file_body_.content_length(size);
 			req_with_file_body_.body() = std::move(body);

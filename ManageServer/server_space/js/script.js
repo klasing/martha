@@ -2,7 +2,7 @@
 //*      	            global
 //****************************************************************************
 //var cookieIsSet = false;
-var user_email_address = "";
+//var user_email_address = "";
 var user_password = "";
 //****************************************************************************
 //*      	            openRegister
@@ -64,13 +64,14 @@ function checkCookie()
   console.log("checkCookie()");
   user_email_address_cookie = getCookie("user_email_address");
   console.log("user_email_address_cookie: " + user_email_address_cookie);
-  if (user_email_address_cookie.length == 0)
+  if (typeof user_email_address_cookie === 'undefined')
   {
 	console.log("no cookie set");
     document.getElementById("login_user_email_address").innerHTML =
       "";
     //window.cookieIsSet = false;
     localStorage.setItem('cookieIsSet', 'false');
+    localStorage.setItem('user_email_address', '');
   }
   else
   {
@@ -79,6 +80,7 @@ function checkCookie()
       "logged in as: " + user_email_address_cookie;
     //window.cookieIsSet = true;
     localStorage.setItem('cookieIsSet', 'true');
+    localStorage.setItem('user_email_address', user_email_address_cookie);
   }
 }
 //****************************************************************************
@@ -95,9 +97,6 @@ function openDocument(document)
 function set_href_and_activate()
 {
   console.log("set_href_and_activate");
-  //var cis = getCookieIsSet();
-  //console.log("cookie: " + cis.valueOf());
-  //if (!Boolean(cis))
   if (localStorage.getItem('cookieIsSet') == 'false')
   {
 	  document.getElementById("msg").innerHTML =
@@ -149,17 +148,19 @@ function doLogin()
       var login_result = this.responseText;
       document.getElementById("login_result").innerHTML = login_result;
 
-      if (login_result == "login: succeeded.")
+      if (login_result == "login: succeeded")
       {
-        // set cookie
-        setCookie("user_email_address", window.user_email_address, 30);
+        // set cookie, for one day
+        setCookie("user_email_address", window.user_email_address, 1);
         // set login_user_email_address in parent window
         window.opener.document.getElementById("login_user_email_address").innerHTML =
           "logged in as: " + window.user_email_address;
+        localStorage.setItem('user_email_address', window.user_email_address);
       }
     }
   }
   xhttp.open("POST", "http://" + window.location.hostname + ":8080/login", true);
+  xhttp.setRequestHeader("From", window.user_email_address);
   xhttp.send(payload_for_post);
 }
 //****************************************************************************
@@ -179,7 +180,7 @@ function doRegister()
     if (this.readyState == 4 && this.status == 200)
     {
       document.getElementById("register_result").innerHTML = this.responseText;
-      if (this.responseText == "register: enter the code received by email.")
+      if (this.responseText == "register: enter the code received by email")
       {
         // hide the fist 'submit' button
         document.getElementById("button_register").style.display = "none";
@@ -189,6 +190,7 @@ function doRegister()
     }
   }
   xhttp.open("POST", "http://" + window.location.hostname + ":8080/register", true);
+  xhttp.setRequestHeader("From", localStorage.getItem('user_email_address'));
   xhttp.send(payload_for_post);
 }
 //****************************************************************************
@@ -213,7 +215,7 @@ function doResetPassword()
     if (this.readyState == 4 && this.status == 200)
     {
       document.getElementById("reset_password_result").innerHTML = this.responseText;
-      if (this.responseText == "reset_password: enter the code received by email.")
+      if (this.responseText == "reset_password: enter the code received by email")
       {
         // hide the fist 'submit' button
         document.getElementById("button_reset_password").style.display = "none";
@@ -223,6 +225,7 @@ function doResetPassword()
     }
   }
   xhttp.open("POST", "http://" + window.location.hostname + ":8080/reset_password", true);
+  xhttp.setRequestHeader("From", localStorage.getItem('user_email_address'));
   xhttp.send(payload_for_post);
 }
 //****************************************************************************
@@ -244,15 +247,15 @@ function doConfirm(result, butt, target)
     }
   }
   xhttp.open("POST", "http://" + window.location.hostname + ":8080/" + target, true);
+  xhttp.setRequestHeader("From", localStorage.getItem('user_email_address'));
   xhttp.send(payload_for_post);
   // hide the second 'submit' button
   document.getElementById(butt).style.display = "none";
 }
 //****************************************************************************
-//*      	            getCookieIsSet
+//*      	            get_user_email_address
 //****************************************************************************
-//function getCookieIsSet()
-//{
-//  console.log("getCookieIsSet()");
-//  return window.cookieIsSet;
-//}
+function get_user_email_address()
+{
+	return localStorage.getItem('user_email_address');
+}

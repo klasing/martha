@@ -16,6 +16,7 @@
 
 <form id="form" method="post" enctype="multipart/form-data">
 <div>
+<input type="hidden" name="user_email_address" id="user_email_address" value="">
 <label for="file">upload</label>
 <br>
 <input type="text" id="field" value="click header to select" readonly>
@@ -25,6 +26,9 @@
 </div>
 </form>
 <script>
+  // bringing user_email_address to server, when uploading
+  document.getElementById("user_email_address").value = get_user_email_address();
+
   var file = document.querySelector('#file');
 
   file.style.opacity = 0;
@@ -34,7 +38,7 @@
   {
     console.log("updateField");
     document.getElementById("field").value = file.files[0].name;
-    if (localStorage.getItem('cookieIsSet') == 'false')//if (!Boolean(getCookieIsSet()))
+    if (localStorage.getItem('cookieIsSet') == 'false')
     {
       document.getElementById("msg").innerHTML =
         "Please login first";
