@@ -1140,6 +1140,11 @@ template<
 			// '/server_space/user_space/'
 			// then a file from within the user_space has to be
 			// downloaded
+			// the user_email_address from the user who downloads
+			// with a browser comes in the cookie field of the GET
+			// so the user can be logged!!!
+			std::string user =
+				static_cast<std::string>(req[http::field::cookie]);
 			std::string path = "";
 			std::string s = req.target().to_string();
 			std::string t = "/server_space";
