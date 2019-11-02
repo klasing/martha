@@ -45,6 +45,12 @@
     <ClInclude Include="GroupBoxResponse.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Connect2SQLite.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ServerLogging.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ManageServer_v10.cpp">

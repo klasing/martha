@@ -14,15 +14,23 @@ typedef std::string
 	  td_id
 	, td_time_of_creation
 	, td_user_email_address
-	, td_user_password;
+	, td_user_password
+	, td_resource_file_name
+	, td_resource_owner;
 typedef std::tuple<
 	  td_id
 	, td_time_of_creation
 	, td_user_email_address
 	, td_user_password> tuple_user_data;
+typedef std::tuple<
+	  td_id
+	, td_time_of_creation
+	, td_resource_file_name
+	, td_resource_owner> tuple_resource_data;
 // typedef for http_server_async thread
 typedef struct tagSTRUCTSERVER {
 	HWND hWnd = NULL;
+	PVOID pServerLogging = nullptr;
 } STRUCTSERVER, *PSTRUCTSERVER;
 
 // Global Variables:
@@ -33,7 +41,9 @@ HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 const size_t BUFFER_MAX = 256;
+PWCHAR pszTextBuffer = new WCHAR[BUFFER_MAX];
 StatusBar oStatusBar;
+Connect2SQLite oSqlite;
 
 // Forward declarations of functions included in this code module:
 //****************************************************************************
@@ -57,6 +67,8 @@ HWND& helper_for_render_control(std::string
 );
 std::string date_for_http_response();
 std::wstring convert_str_to_wstr(const std::string&);
+// http_server_async function (runs in a WIN32-Thread)
+DWORD WINAPI http_server_async(LPVOID);
 
 //****************************************************************************
 //*                     wWinMain        
@@ -199,16 +211,41 @@ WndProc(HWND hWnd
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
 	static PSTRUCTSERVER pStructServer = new STRUCTSERVER;
 	static TabControl oTabControl;
+	static ServerLogging oServerLogging;
 	switch (uMsg)
 	{
 	case WM_NCCREATE:
+	{
 		// create a tab control
 		oTabControl.createTabControl(hInst, hWnd);
 		// create a status bar
 		oStatusBar.createStatusBar(hInst, hWnd);
-		// initialize the struct value
+		// start timing, on opening the database
+		boost::timer::cpu_timer timer;
+		// open database
+		oSqlite.openDb();
+		// create table, if non existent
+		oSqlite.createTableUser();
+		oSqlite.createTableResource();
+		// will create an error message when the default user already exists
+		// SQL error: UNIQUE constraint failed: 
+		// user_access_login_data.user_email_address
+		oSqlite.insertDefaultUser(date_for_http_response());
+		// stop timer
+		timer.stop();
+		oServerLogging.set_hwnd(oTabControl.hWndDlg[1]);
+		oServerLogging.store_log("0.0.0.0"
+			, "sqlite3 db startup"
+			, "sqlite3 db started"
+			, timer.elapsed()
+			, ""
+			, ""
+		);
+		// initialize structure for asynchronous http server
 		pStructServer->hWnd = hWnd;
+		pStructServer->pServerLogging = &oServerLogging;
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
+	} // eof WM_NCCREATE
 	case WM_SIZE:
 		oTabControl.showTabItems(lParam);
 		oStatusBar.SetStatusBar(hWnd);
@@ -232,8 +269,8 @@ WndProc(HWND hWnd
 			OutputDebugString(L"IDM_EXIT\n");
 			DestroyWindow(hWnd);
 			break;
-		case IDM_USER_CREATE:
-			OutputDebugString(L"IDM_USER_CREATE\n");
+		case IDM_DB_USER_CREATE:
+			OutputDebugString(L"IDM_DB_USER_CREATE\n");
 			DialogBoxParam(hInst
 				, L"MODALWINDOW"
 				, hWnd
@@ -241,11 +278,23 @@ WndProc(HWND hWnd
 				, (LPARAM)pStructServer
 			);
 			break;
-		case IDM_USER_SELECT_ALL:
-			OutputDebugString(L"IDM_USER_SELECT_ALL\n");
+		case IDM_DB_USER_SELECT_ALL:
+			OutputDebugString(L"IDM_DB_USER_SELECT_ALL\n");
+			SendMessage(oTabControl.hWndDlg[0]
+				, IDM_DB_USER_SELECT_ALL
+				, (WPARAM)0
+				, (LPARAM)0
+			);
+			// sqlite will call IDM_DB_SELECT_ALL_CALLBACK in hWndDlg[0]
+			oSqlite.selectAll_user(oTabControl.hWndDlg[0]);
 			break;
-		case IDM_RESOURCE_SELECT_ALL:
-			OutputDebugString(L"IDM_RESOURCE_SELECT_ALL\n");
+		case IDM_DB_RESOURCE_SELECT_ALL:
+			OutputDebugString(L"IDM_DB_RESOURCE_SELECT_ALL\n");
+			SendMessage(oTabControl.hWndDlg[0]
+				, IDM_DB_RESOURCE_SELECT_ALL
+				, (WPARAM)0
+				, (LPARAM)0
+			);
 			break;
 		case IDM_MONITORING_START:
 			OutputDebugString(L"IDM_MONITORINGING_START\n");
@@ -289,8 +338,14 @@ WndProc(HWND hWnd
 			break;
 		case IDM_MONITORING_CLEAR:
 			OutputDebugString(L"IDM_MONITORING_CLEAR\n");
+			SendMessage(oTabControl.hWndDlg[1]
+				, IDM_MONITORING_CLEAR
+				, (WPARAM)0
+				, (LPARAM)0
+			);
 			break;
 		case IDM_SERVER_START:
+		{
 			OutputDebugString(L"IDM_SERVER_START\n");
 			EnableMenuItem(GetMenu(hWnd), IDM_SERVER_START, MF_GRAYED);
 			EnableMenuItem(GetMenu(hWnd), IDM_SERVER_STOP, MF_ENABLED);
@@ -299,7 +354,17 @@ WndProc(HWND hWnd
 				, (WPARAM)0
 				, (LPARAM)0
 			);
+			// start thread			
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL
+				, 0						// default stack size
+				, http_server_async		// thread function
+				, pStructServer			// argument to thread function
+				, 0						// default creation flags
+				, &dwThreadID			// returns the thread identifier
+			);
 			break;
+		} // eof IDM_SERVER_START
 		case IDM_SERVER_STOP:
 			OutputDebugString(L"IDM_SERVER_STOP\n");
 			EnableMenuItem(GetMenu(hWnd), IDM_SERVER_START, MF_ENABLED);
@@ -309,6 +374,8 @@ WndProc(HWND hWnd
 				, (WPARAM)0
 				, (LPARAM)0
 			);
+			// raise a signal to kill the server
+			raise(SIGABRT);
 			break;
 		default:
 			return DefWindowProc(hWnd, uMsg, wParam, lParam);
@@ -370,7 +437,11 @@ Tab0Proc(HWND hDlg
 )
 {
 	static HINSTANCE hInst = (HINSTANCE)GetModuleHandle(NULL);
-	static HWND hWndLV;
+	static HWND hWndLV_user; 
+	static HWND hWndLV_resource;
+	static HMENU popup_menu_user;
+	static int selection_mark_user = -1;
+	static std::string mode = "user";
 	switch (uMsg)
 	{
 	case WM_INITDIALOG:
@@ -378,23 +449,168 @@ Tab0Proc(HWND hDlg
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Tab0Proc");
 		// create listview
-		hWndLV = createListView(hInst, hDlg, IDC_LVDB);
+		hWndLV_user = createListView(hInst, hDlg, IDC_LVDB_USER);
 		// add column to listview
 		addColumn(hInst
-			, hWndLV
+			, hWndLV_user
 			, 4
-			, IDS_LVDB_COL0, IDS_LVDB_COL1, IDS_LVDB_COL2
-			, IDS_LVDB_COL3
+			, IDS_LVDB_USER_COL0, IDS_LVDB_USER_COL1, IDS_LVDB_USER_COL2
+			, IDS_LVDB_USER_COL3
+		);
+		popup_menu_user = CreatePopupMenu();
+		AppendMenu(popup_menu_user
+			, MF_STRING
+			, IDM_DB_DELETE_USER
+			, L"&Delete"
+		);
+		SetMenu(hWndLV_user
+			, popup_menu_user
+		);
+		// create listview
+		hWndLV_resource = createListView(hInst, hDlg, IDC_LVDB_RESOURCE);
+		// add column to listview
+		addColumn(hInst
+			, hWndLV_resource
+			, 4
+			, IDS_LVDB_RESOURCE_COL0, IDS_LVDB_RESOURCE_COL1, IDS_LVDB_RESOURCE_COL2
+			, IDS_LVDB_RESOURCE_COL3
 		);
 		return (INT_PTR)TRUE;
 	case WM_SIZE:
-		MoveWindow(hWndLV
-			, 0, 0
-			, GET_X_LPARAM(lParam)
-			, GET_Y_LPARAM(lParam)
-			, TRUE
-		);
+		if (mode == "user")
+		{
+			MoveWindow(hWndLV_user
+				, 0, 0
+				, GET_X_LPARAM(lParam)
+				, GET_Y_LPARAM(lParam)
+				, TRUE
+			);
+			// annoying GUI hell, size and position of the listview resource 
+			// has to be determined, but the window is NOT to be shown
+			// in the Tab1Proc a similar case is done differently,
+			// to keep the GUI design challenging
+			SetWindowPos(hWndLV_resource
+				, HWND_TOP
+				, 0, 0
+				, GET_X_LPARAM(lParam)
+				, GET_Y_LPARAM(lParam)
+				, SWP_HIDEWINDOW
+			);
+		}
+		if (mode == "resource")
+			MoveWindow(hWndLV_resource
+				, 0, 0
+				, GET_X_LPARAM(lParam)
+				, GET_Y_LPARAM(lParam)
+				, TRUE
+			);
 		return 0;
+	case WM_NOTIFY:
+	{
+		LPNMHDR lpNmHdr = (LPNMHDR)lParam;
+		switch (((LPNMHDR)lParam)->code)
+		{
+		case NM_RCLICK:
+		{
+			selection_mark_user = SendMessage(hWndLV_user
+				, LVM_GETSELECTIONMARK
+				, (WPARAM)0
+				, (LPARAM)0
+			);
+			if (selection_mark_user == -1)
+				return 0;
+			// show popup menu
+			POINT ptCursorPos;
+			GetCursorPos(&ptCursorPos);
+			TrackPopupMenu(popup_menu_user
+				, TPM_RIGHTBUTTON
+				, ptCursorPos.x
+				, ptCursorPos.y
+				, 0
+				// the window that receives the IDM_DB_DELETE_USER message
+				// via a WM_COMMAND message
+				, hDlg
+				, NULL
+			);
+			return 0;
+		} // eof NM_RCLICK
+		} // eof switch
+		// the return value is ignored
+		return 0;
+	} // eof WM_NOTIFY
+	case IDM_DB_USER_SELECT_ALL:
+		OutputDebugString(L"IDM_DB_USER_SELECT_ALL [Tab0Proc]\n");
+		mode = "user";
+		// hide the non-relevant window
+		ShowWindow(hWndLV_resource, SW_HIDE);
+		// and then showing
+		ShowWindow(hWndLV_user, SW_SHOW);
+		break;
+	case IDM_DB_USER_SELECT_ALL_CALLBACK:
+	{
+		OutputDebugString(L"IDM_DB_USER_SELECT_ALL_CALLBACK [Tab0Proc]\n");
+		// clear listview
+		clearListView(hWndLV_user);
+		size_t iItem = 0;
+		std::vector<tuple_user_data>* pvud =
+			(std::vector<tuple_user_data>*)lParam;
+		for (auto it = pvud->begin(); it < pvud->end(); ++it)
+		{
+			tuple_user_data tud = *it;
+			addListViewItem(hWndLV_user
+				, const_cast<char*>(std::get<0>(tud).c_str())
+				, iItem, 0);
+			addListViewItem(hWndLV_user
+				, const_cast<char*>(std::get<1>(tud).c_str())
+				, iItem, 1);
+			addListViewItem(hWndLV_user
+				, const_cast<char*>(std::get<2>(tud).c_str())
+				, iItem, 2);
+			addListViewItem(hWndLV_user
+				, const_cast<char*>(std::get<3>(tud).c_str())
+				, iItem, 3);
+			++iItem;
+		}
+		break;
+	} // eof IDM_DB_USER_SELECT_ALL_CALLBACK
+	case IDM_DB_RESOURCE_SELECT_ALL:
+		OutputDebugString(L"IDM_DB_RESOURCE_SELECT_ALL [Tab0Proc]\n");
+		mode = "resource";
+		// hide the non-relevant window
+		ShowWindow(hWndLV_user, SW_HIDE);
+		// and then showing
+		ShowWindow(hWndLV_resource, SW_SHOW);
+		break;
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDM_DB_DELETE_USER:
+		{
+			OutputDebugString(L"IDM_DB_DELETE_USER [Tab0Proc]\n");
+			if (selection_mark_user == -1)
+				break;
+			PWCHAR pszText = new WCHAR[64];
+			// find the primary key ID for the user that is going to be deleted
+			getListViewItem(hWndLV_user
+				, selection_mark_user
+				, 0
+				, pszText
+			);
+			// delete the user from the database,
+			// with the found primary key ID
+			oSqlite.deleteRow("user", _wtoi(pszText));
+			// delete selected listview item
+			SendMessage(hWndLV_user
+				, LVM_DELETEITEM
+				, (WPARAM)selection_mark_user
+				, (LPARAM)0
+			);
+			// clean up
+			delete[] pszText;
+			break;
+		} // eof IDM_DB_DELETE_USER
+		} // eof switch
+		break;
 	} // eof switch
 	return (INT_PTR)FALSE;
 }
@@ -416,6 +632,8 @@ Tab1Proc(HWND hDlg
 	static GroupBoxResponse groupBoxResponse;
 	static HWND hWndGroupBoxRequest, hWndGroupBoxResponse;
 	static std::string mode = "list";
+	static BOOL bMonitor = TRUE;
+	static UINT iItem = 0;
 	switch (uMsg)
 	{
 	case WM_INITDIALOG:
@@ -423,7 +641,7 @@ Tab1Proc(HWND hDlg
 		// the message pump can dispatch messages to this dialog
 		SetWindowText(hDlg, L"Tab1Proc");
 		// create listview
-		hWndLV = createListView(hInst, hDlg, IDC_LVDB);
+		hWndLV = createListView(hInst, hDlg, IDC_LVLOG);
 		// add column to listview
 		addColumn(hInst
 			, hWndLV
@@ -444,14 +662,12 @@ Tab1Proc(HWND hDlg
 		return (INT_PTR)TRUE;
 	case WM_SIZE:
 		if (mode == "list")
-		{
 			MoveWindow(hWndLV
 				, 0, 0
 				, GET_X_LPARAM(lParam)
 				, GET_Y_LPARAM(lParam)
 				, TRUE
 			);
-		}
 		if (mode == "verbose")
 		{
 			RECT clientRect;
@@ -474,13 +690,24 @@ Tab1Proc(HWND hDlg
 			);
 		}
 		return 0;
+	case IDM_MONITORING_CLEAR:
+		OutputDebugString(L"IDM_MONITORING_CLEAR [Tab1Proc]\n");
+		clearListView(hWndLV);
+		iItem = 0;
+		break;
+	case IDM_MONITORING_LOGFILESIZE:
+		OutputDebugString(L"IDM_MONITORING_LOGFILESIZE [Tab1Proc]\n");
+		oStatusBar.StatusBarSetText(0, 5, (PWCHAR)lParam);
+		break;
 	case IDM_MONITORING_START:
 		OutputDebugString(L"IDM_MONITORING_START [Tab1Proc]\n");
 		oStatusBar.StatusBarSetText(0, 1, L"Monitor ON");
+		bMonitor = TRUE;
 		break;
 	case IDM_MONITORING_STOP:
 		OutputDebugString(L"IDM_MONITORING_STOP [Tab1Proc]\n");
 		oStatusBar.StatusBarSetText(0, 1, L"Monitor OFF");
+		bMonitor = FALSE;
 		break;
 	case IDM_MONITORING_LIST:
 	{
@@ -532,6 +759,35 @@ Tab1Proc(HWND hDlg
 		);
 		break;
 	} // eof IDM_MONITORING_VERBOSE
+	case IDM_LOG_MSG:
+		OutputDebugString(L"IDM_LOG_MSG [Tab1Proc]\n");
+		if (bMonitor)
+		{
+			tuple_logging* ptl = (tuple_logging*)lParam;
+			addListViewItem(hWndLV
+				, ptl->get<0>().c_str()
+				, iItem, 0);
+			addListViewItem(hWndLV
+				, ptl->get<1>().c_str()
+				, iItem, 1);
+			addListViewItem(hWndLV
+				, ptl->get<2>().c_str()
+				, iItem, 2);
+			addListViewItem(hWndLV
+				, ptl->get<3>().c_str()
+				, iItem, 3);
+			addListViewItem(hWndLV
+				, ptl->get<4>().c_str()
+				, iItem, 4);
+			addListViewItem(hWndLV
+				, ptl->get<5>().c_str()
+				, iItem, 5);
+			addListViewItem(hWndLV
+				, ptl->get<6>().c_str()
+				, iItem, 6);
+			++iItem;
+		}
+		break;
 	} // eof switch
 	return (INT_PTR)FALSE;
 }
@@ -729,28 +985,28 @@ HWND& helper_for_render_control(std::string typeControl
 //****************************************************************************
 //*                     date_for_http_response
 //****************************************************************************
-std::string
-date_for_http_response()
-{
-	const std::string dow[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-	const std::string month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-	time_t tt;
-	time(&tt);
-	tm t;
-	localtime_s(&t, &tt);
-	struct tm gmt;
-	gmtime_s(&gmt, &tt);
-	std::ostringstream oss;
-	oss << dow[gmt.tm_wday] << ", "
-		<< std::setw(2) << std::setfill('0') << gmt.tm_mday << " "
-		<< month[gmt.tm_mon] << " "
-		<< gmt.tm_year + 1900 << " "
-		<< std::setw(2) << std::setfill('0') << gmt.tm_hour << ":"
-		<< std::setw(2) << std::setfill('0') << gmt.tm_min << ":"
-		<< std::setw(2) << std::setfill('0') << gmt.tm_sec << " "
-		<< "GMT";
-	return oss.str();
-}
+//std::string
+//date_for_http_response()
+//{
+//	const std::string dow[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+//	const std::string month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+//	time_t tt;
+//	time(&tt);
+//	tm t;
+//	localtime_s(&t, &tt);
+//	struct tm gmt;
+//	gmtime_s(&gmt, &tt);
+//	std::ostringstream oss;
+//	oss << dow[gmt.tm_wday] << ", "
+//		<< std::setw(2) << std::setfill('0') << gmt.tm_mday << " "
+//		<< month[gmt.tm_mon] << " "
+//		<< gmt.tm_year + 1900 << " "
+//		<< std::setw(2) << std::setfill('0') << gmt.tm_hour << ":"
+//		<< std::setw(2) << std::setfill('0') << gmt.tm_min << ":"
+//		<< std::setw(2) << std::setfill('0') << gmt.tm_sec << " "
+//		<< "GMT";
+//	return oss.str();
+//}
 //****************************************************************************
 //*                     convert_str_to_wchar
 //****************************************************************************
@@ -763,11 +1019,480 @@ convert_str_to_wstr(const std::string& str)
 //////////////////////////////////////////////////////////////////////////////
 //                      boost part
 //////////////////////////////////////////////////////////////////////////////
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace http = beast::http;           // from <boost/beast/http.hpp>
+namespace net = boost::asio;            // from <boost/asio.hpp>
+using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
+
+//****************************************************************************
+//*                     global
+//****************************************************************************
+const int SECONDS_BEFORE_EXPIRING = 300;
+//****************************************************************************
+//*                     mime_type
+//****************************************************************************
+// Return a reasonable mime type based on the extension of a file.
+beast::string_view
+mime_type(beast::string_view path)
+{
+	using beast::iequals;
+	auto const ext = [&path]
+	{
+		auto const pos = path.rfind(".");
+		if (pos == beast::string_view::npos)
+			return beast::string_view{};
+		return path.substr(pos);
+	}();
+	if (iequals(ext, ".htm"))  return "text/html";
+	if (iequals(ext, ".html")) return "text/html";
+	if (iequals(ext, ".php"))  return "text/html";
+	if (iequals(ext, ".css"))  return "text/css";
+	if (iequals(ext, ".txt"))  return "text/plain";
+	if (iequals(ext, ".js"))   return "application/javascript";
+	if (iequals(ext, ".json")) return "application/json";
+	if (iequals(ext, ".xml"))  return "application/xml";
+	if (iequals(ext, ".swf"))  return "application/x-shockwave-flash";
+	if (iequals(ext, ".flv"))  return "video/x-flv";
+	if (iequals(ext, ".png"))  return "image/png";
+	if (iequals(ext, ".jpe"))  return "image/jpeg";
+	if (iequals(ext, ".jpeg")) return "image/jpeg";
+	if (iequals(ext, ".jpg"))  return "image/jpeg";
+	if (iequals(ext, ".gif"))  return "image/gif";
+	if (iequals(ext, ".bmp"))  return "image/bmp";
+	if (iequals(ext, ".ico"))  return "image/vnd.microsoft.icon";
+	if (iequals(ext, ".tiff")) return "image/tiff";
+	if (iequals(ext, ".tif"))  return "image/tiff";
+	if (iequals(ext, ".svg"))  return "image/svg+xml";
+	if (iequals(ext, ".svgz")) return "image/svg+xml";
+	return "application/text";
+}
+//****************************************************************************
+//*                     path_cat
+//****************************************************************************
+// Append an HTTP rel-path to a local filesystem path.
+// The returned path is normalized for the platform.
+std::string
+path_cat(
+	beast::string_view base,
+	beast::string_view path)
+{
+	if (base.empty())
+		return std::string(path);
+	std::string result(base);
+#ifdef BOOST_MSVC
+	char constexpr path_separator = '\\';
+	if (result.back() == path_separator)
+		result.resize(result.size() - 1);
+	result.append(path.data(), path.size());
+	for (auto& c : result)
+		if (c == '/')
+			c = path_separator;
+#else
+	char constexpr path_separator = '/';
+	if (result.back() == path_separator)
+		result.resize(result.size() - 1);
+	result.append(path.data(), path.size());
+#endif
+	return result;
+}
+//****************************************************************************
+//*                     handle_request
+//****************************************************************************
+// This function produces an HTTP response for the given
+// request. The type of the response object depends on the
+// contents of the request, so the interface requires the
+// caller to pass a generic lambda for receiving the response.
+template<class Body, class Allocator, class Send>
+void
+handle_request(beast::string_view doc_root
+	, http::request<Body, http::basic_fields<Allocator>>&& req
+	, Send&& send
+)
+{
+	// Returns a bad request response
+	auto const bad_request =
+		[&, req]
+	(beast::string_view why)
+	{
+		http::response<http::string_body> res{ 
+			http::status::bad_request, req.version()
+		};
+		return res;
+	};
+	// Returns a not found response
+	auto const not_found =
+		[&, req]
+	(beast::string_view target)
+	{
+		http::response<http::string_body> res{ 
+			http::status::not_found, req.version()
+		};
+		return res;
+	};
+	// Returns a server error response
+	auto const server_error =
+		[&, req]
+	(beast::string_view what)
+	{
+		http::response<http::string_body> res{ 
+			http::status::internal_server_error, req.version()
+		};
+		return res;
+	};
+	// Make sure we can handle the method
+	if (req.method() != http::verb::connect &&
+		req.method() != http::verb::delete_ &&
+		req.method() != http::verb::get &&
+		req.method() != http::verb::head &&
+		req.method() != http::verb::options &&
+		req.method() != http::verb::post &&
+		req.method() != http::verb::put &&
+		req.method() != http::verb::trace)
+		return send(bad_request("Unknown HTTP-method"));
+	// Respond to a CONNECT request
+	if (req.method() == http::verb::connect) {
+		OutputDebugString(L"-> CONNECT message received\n");
+		// not implemented yet
+	}
+	// Respond to a DELETE request
+	if (req.method() == http::verb::delete_) {
+		OutputDebugString(L"-> DELETE message received\n");
+		// not implemented yet
+	}
+	// Respond to a GET request
+	if (req.method() == http::verb::get) {
+		OutputDebugString(L"-> GET message received\n");
+	}
+	// Respond to a HEAD request
+	if (req.method() == http::verb::head) {
+		OutputDebugString(L"-> HEAD message received\n");
+	}
+	// Respond to a OPTIONS request
+	if (req.method() == http::verb::options) {
+		OutputDebugString(L"-> OPTIONS message received\n");
+		// not implemented yet
+	}
+	// Respond to a POST request
+	if (req.method() == http::verb::post) {
+		OutputDebugString(L"-> POST message received\n");
+	}
+	// Respond to a PUT request
+	if (req.method() == http::verb::put) {
+		OutputDebugString(L"-> PUT message received\n");
+	}
+	// Respond to a TRACE request
+	if (req.method() == http::verb::trace) {
+		OutputDebugString(L"-> TRACE message received\n");
+	}
+}
+//****************************************************************************
+//*                     fail
+//****************************************************************************
+// Report a failure
+void
+fail(beast::error_code ec, char const* what)
+{
+	;// std::cerr << what << ": " << ec.message() << "\n";
+	const size_t sizeInWords = std::strlen(what) + 1;
+	size_t* pReturnValue = new size_t();
+	size_t count = _TRUNCATE;
+	wchar_t* wcsWhat = new wchar_t[sizeInWords];
+	errno_t err = mbstowcs_s(pReturnValue
+		, wcsWhat
+		, sizeInWords
+		, what
+		, count
+	);
+	OutputDebugString(wcsWhat);
+}
+//****************************************************************************
+//*                     session
+//****************************************************************************
+// Handles an HTTP server connection
+class session : public std::enable_shared_from_this<session>
+{
+	// This is the C++11 equivalent of a generic lambda.
+	// The function object is used to send an HTTP message.
+	struct send_lambda
+	{
+		session& self_;
+		explicit
+			send_lambda(session& self)
+			: self_(self)
+		{}
+		template<bool isRequest, class Body, class Fields>
+		void
+			operator()(http::message<isRequest, Body, Fields>&& msg) const
+		{
+			// The lifetime of the message has to extend
+			// for the duration of the async operation so
+			// we use a shared_ptr to manage it.
+			auto sp = std::make_shared<
+				http::message<isRequest, Body, Fields>>(std::move(msg));
+			// Store a type-erased version of the shared
+			// pointer in the class to keep it alive.
+			self_.res_ = sp;
+			// Write the response
+			http::async_write(self_.stream_
+				, *sp
+				, beast::bind_front_handler(&session::on_write
+					, self_.shared_from_this()
+					, sp->need_eof())
+			);
+		}
+	};
+	beast::tcp_stream stream_;
+	beast::flat_buffer buffer_;
+	std::shared_ptr<std::string const> doc_root_;
+	http::request<http::string_body> req_;
+	std::shared_ptr<void> res_;
+	send_lambda lambda_;
+public:
+	// Take ownership of the stream
+	session(tcp::socket&& socket
+		, std::shared_ptr<std::string const> const& doc_root
+	)
+		: stream_(std::move(socket))
+		, doc_root_(doc_root)
+		, lambda_(*this)
+	{}
+	// Start the asynchronous operation
+	void
+		run()
+	{
+		do_read();
+	}
+	void
+		do_read()
+	{
+		// Make the request empty before reading,
+		// otherwise the operation behavior is undefined.
+		req_ = {};
+		// Set the timeout.
+		stream_.expires_after(std::chrono::seconds(SECONDS_BEFORE_EXPIRING));
+		// Read a request
+		http::async_read(stream_, buffer_, req_,
+			beast::bind_front_handler(
+				&session::on_read,
+				shared_from_this()));
+	}
+	void
+		on_read(
+			beast::error_code ec,
+			std::size_t bytes_transferred)
+	{
+		boost::ignore_unused(bytes_transferred);
+		// This means they closed the connection
+		if (ec == http::error::end_of_stream)
+			return do_close();
+		if (ec)
+			return fail(ec, "read");
+		// Send the response
+		handle_request(*doc_root_
+			, std::move(req_)
+			, lambda_);
+	}
+	void
+		on_write(
+			bool close,
+			beast::error_code ec,
+			std::size_t bytes_transferred)
+	{
+		boost::ignore_unused(bytes_transferred);
+		if (ec)
+			return fail(ec, "write");
+		if (close)
+		{
+			// This means we should close the connection, usually because
+			// the response indicated the "Connection: close" semantic.
+			return do_close();
+		}
+		// We're done with the response so delete it
+		res_ = nullptr;
+		// Read another request
+		do_read();
+	}
+	void
+		do_close()
+	{
+		// Send a TCP shutdown
+		beast::error_code ec;
+		stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
+		// At this point the connection is closed gracefully
+	}
+};
+//****************************************************************************
+//*                     listener
+//****************************************************************************
+// Accepts incoming connections and launches the sessions
+class listener : public std::enable_shared_from_this<listener>
+{
+	net::io_context& ioc_;
+	tcp::acceptor acceptor_;
+	std::shared_ptr<std::string const> doc_root_;
+	std::shared_ptr<ServerLogging> pServerLogging_;
+	std::shared_ptr<boost::timer::cpu_timer> pTimer_;
+public:
+	listener(net::io_context& ioc
+		, tcp::endpoint endpoint
+		, std::shared_ptr<std::string const> const& doc_root
+		, std::shared_ptr<ServerLogging> pServerLogging
+		, std::shared_ptr<boost::timer::cpu_timer> pTimer
+	)
+		: ioc_(ioc)
+		, acceptor_(net::make_strand(ioc))
+		, doc_root_(doc_root)
+		, pServerLogging_(pServerLogging)
+		, pTimer_(pTimer)
+	{
+		OutputDebugString(L"<<constructor>> listener()\n");
+		beast::error_code ec;
+		// Open the acceptor
+		acceptor_.open(endpoint.protocol(), ec);
+		if (ec)
+		{
+			fail(ec, "open");
+			return;
+		}
+		// Allow address reuse
+		acceptor_.set_option(net::socket_base::reuse_address(true), ec);
+		if (ec)
+		{
+			fail(ec, "set_option");
+			return;
+		}
+		// Bind to the server address
+		acceptor_.bind(endpoint, ec);
+		if (ec)
+		{
+			fail(ec, "bind");
+			return;
+		}
+		// Start listening for connections
+		acceptor_.listen(
+			net::socket_base::max_listen_connections, ec);
+		if (ec)
+		{
+			fail(ec, "listen");
+			return;
+		}
+	}
+	// Start accepting incoming connections
+	void
+		run()
+	{
+		// the server is running, so the timer can be stopped
+		// and a message can be logged
+		pTimer_->stop();
+		pServerLogging_->store_log("0.0.0.0"
+			, "start server"
+			, "server alive"
+			, pTimer_->elapsed()
+			, ""
+			, ""
+		);
+		do_accept();
+	}
+private:
+	void
+		do_accept()
+	{
+		// The new connection gets its own strand
+		acceptor_.async_accept(net::make_strand(ioc_)
+			, beast::bind_front_handler(
+				&listener::on_accept
+				, shared_from_this())
+		);
+	}
+	void
+		on_accept(beast::error_code ec, tcp::socket socket)
+	{
+		if (ec)
+		{
+			fail(ec, "accept");
+		}
+		else
+		{
+			// create the session and run it
+			std::make_shared<session>(std::move(socket)
+				, doc_root_
+				)->run();
+		}
+		// Accept another connection
+		do_accept();
+	}
+};
 //****************************************************************************
 //*                     http_server_async
 //****************************************************************************
 DWORD WINAPI http_server_async(LPVOID lpVoid)
 {
 	OutputDebugString(L"http_server_async\n");
+	ServerLogging* pServerLogging =
+		(ServerLogging*)((PSTRUCTSERVER)lpVoid)->pServerLogging;
+
+	auto const address = net::ip::make_address("0.0.0.0");
+	auto const port = static_cast<unsigned short>(8080);
+	auto const doc_root = std::make_shared<std::string>(".");
+	auto const threads = 1;
+
+	// start timing, on server startup
+	boost::timer::cpu_timer timer;
+	// create pointers for the sake of the 
+	// boost::beast asynchronous http server
+	// 2) shared pointer to ServerLogging instance
+	auto const pServerLogging_ =
+		std::make_shared<ServerLogging>(*pServerLogging);
+	// 3) shared pointer to timer instance 
+	auto pTimer_ =
+		std::make_shared<boost::timer::cpu_timer>(timer);
+
+	// The io_context is required for all I/O
+	net::io_context ioc{ threads };
+	// Create and launch a listening port
+	std::make_shared<listener>(ioc
+		, tcp::endpoint{ address, port }
+		, doc_root
+		, pServerLogging_
+		, pTimer_)->run();
+
+	// Capture SIGABRT to perform a clean shutdown
+	net::signal_set signals(ioc, SIGABRT);
+	signals.async_wait(
+		[&](beast::error_code const&, int)
+		{
+			// Stop the `io_context`. This will cause `run()`
+			// to return immediately, eventually destroying the
+			// `io_context` and all of the sockets in it.
+			ioc.stop();
+		}
+	);
+
+	// Run the I/O service on the requested number of threads
+	std::vector<std::thread> v;
+	v.reserve(threads - 1);
+	for (auto i = threads - 1; i > 0; --i)
+		v.emplace_back(
+			[&ioc]
+	{
+		ioc.run();
+	});
+	ioc.run();
+
+	// (if we get here, it means we got a SIGABRT)
+	// block until all threads exit
+	// start timing, on server shutdown
+	timer.start();
+	for (auto& t : v)
+		t.join();
+	timer.stop();
+	pServerLogging->store_log("0.0.0.0"
+		, "stop server"
+		, "server dead"
+		, timer.elapsed()
+		, ""
+		, ""
+	);
+
 	return (DWORD)EXIT_SUCCESS;
 }
