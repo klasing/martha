@@ -47,7 +47,9 @@ typedef std::string td_current_gmt
 , td_response
 , td_elapsed_time
 , td_user
-, td_user_agent;
+, td_user_agent
+, td_req_message
+, td_res_message;
 typedef boost::tuples::tuple<td_current_gmt
 	, td_remote_endpoint
 	, td_request
@@ -55,6 +57,9 @@ typedef boost::tuples::tuple<td_current_gmt
 	, td_elapsed_time
 	, td_user
 	, td_user_agent> tuple_logging;
+typedef boost::tuples::tuple<td_req_message
+	, td_res_message> tuple_logging_verbose;
+
 
 //****************************************************************************
 //*                     ServerLogging
@@ -223,6 +228,8 @@ public:
 		, const boost::timer::cpu_times& timer_elapsed
 		, const std::string& user
 		, const std::string& user_agent
+		, const std::string& req_message
+		, const std::string& res_message
 	)
 	{
 		// get current gmt
@@ -238,13 +245,24 @@ public:
 			, user
 			, user_agent
 		};
+		tuple_logging_verbose tlv{ req_message
+			, res_message
+		};
 		// write tuple to file
 		write_logfile(tl);
 		get_filesize_logfile();
 		// clear file if too big
 		clear_logfile_if_too_big();
 		// send message to server manager
+		tuple_logging_verbose* ptlv = &tlv;
 		tuple_logging* ptl = &tl;
+		if (remote_endpoint != "0.0.0.0")
+			// HTTP message from a client, over TCP/IP
+			SendMessage(hWnd
+				, IDM_LOG_MSG_VERBOSE
+				, (WPARAM)0
+				, (LPARAM)ptlv
+			);
 		SendMessage(hWnd
 			, IDM_LOG_MSG
 			, (WPARAM)0

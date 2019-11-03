@@ -28,10 +28,18 @@ typedef std::tuple<
 	, td_resource_file_name
 	, td_resource_owner> tuple_resource_data;
 // typedef for http_server_async thread
+//typedef struct tagSTRUCTSERVER {
+//	HWND hWnd = NULL;
+//	PVOID pServerLogging = nullptr;
+//	std::string str_request = "";
+//} STRUCTSERVER, *PSTRUCTSERVER;
 typedef struct tagSTRUCTSERVER {
 	HWND hWnd = NULL;
-	PVOID pServerLogging = nullptr;
-} STRUCTSERVER, *PSTRUCTSERVER;
+	std::shared_ptr<boost::timer::cpu_timer> pTimer = nullptr;
+	std::shared_ptr<ServerLogging> pServerLogging = nullptr;
+	std::shared_ptr<boost::timer::cpu_timer> pResponseTimer = nullptr;
+	std::shared_ptr<std::string> remote_endpoint = nullptr;
+} STRUCTSERVER, * PSTRUCTSERVER;
 
 // Global Variables:
 //****************************************************************************
@@ -240,10 +248,14 @@ WndProc(HWND hWnd
 			, timer.elapsed()
 			, ""
 			, ""
+			, "" // req_message, used only by http_async_server
+			, "" // res_message, used only by http_async_server
 		);
 		// initialize structure for asynchronous http server
 		pStructServer->hWnd = hWnd;
-		pStructServer->pServerLogging = &oServerLogging;
+		//pStructServer->pServerLogging = &oServerLogging;
+		pStructServer->pServerLogging = 
+			std::make_shared<ServerLogging>(oServerLogging);
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	} // eof WM_NCCREATE
 	case WM_SIZE:
@@ -759,6 +771,19 @@ Tab1Proc(HWND hDlg
 		);
 		break;
 	} // eof IDM_MONITORING_VERBOSE
+	case IDM_LOG_MSG_VERBOSE:
+	{
+		OutputDebugString(L"IDM_LOG_MSG_VERBOSE [Tab1Proc]\n");
+		tuple_logging_verbose* ptlv =
+			(tuple_logging_verbose*)lParam;
+		groupBoxRequest.setGroupBoxText(
+			ptlv->get<0>().c_str()
+		);
+		groupBoxResponse.setGroupBoxText(
+			ptlv->get<1>().c_str()
+		);
+		break;
+	} // eof IDM_LOG_MSG_VERBOSE
 	case IDM_LOG_MSG:
 		OutputDebugString(L"IDM_LOG_MSG [Tab1Proc]\n");
 		if (bMonitor)
@@ -1015,7 +1040,6 @@ convert_str_to_wstr(const std::string& str)
 {
 	return std::wstring(str.begin(), str.end()).c_str();
 }
-
 //////////////////////////////////////////////////////////////////////////////
 //                      boost part
 //////////////////////////////////////////////////////////////////////////////
@@ -1028,6 +1052,57 @@ using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 //*                     global
 //****************************************************************************
 const int SECONDS_BEFORE_EXPIRING = 300;
+//****************************************************************************
+//*                     output_buffer
+//****************************************************************************
+class output_buffer : public std::streambuf
+{
+	static const unsigned BUFFER_MAX = 8192; // 8k buffer
+	char* pBuffer = new char[BUFFER_MAX];
+	unsigned iBuffer = 0;
+public:
+	output_buffer()
+	{
+		clear_and_reset_buffer();
+	}
+	void clear_and_reset_buffer()
+	{
+		for (int i = 0; i < BUFFER_MAX; ++i)
+			pBuffer[i] = '\0';
+		iBuffer = 0;
+ 	}
+	char* get_buffer() const
+	{
+		return pBuffer;
+	}
+protected:
+	virtual int_type overflow(int_type c)
+	{
+		if (c != EOF && iBuffer < BUFFER_MAX - 2)
+			if (iBuffer == BUFFER_MAX - 2)
+				pBuffer[iBuffer++] = '\n';
+			else
+				pBuffer[iBuffer++] = c;
+		return c;
+	}
+};
+//****************************************************************************
+//*                     output_stream
+//****************************************************************************
+class output_stream : public std::ostream
+{
+	output_buffer ob;
+public:
+	output_stream() : std::ostream(&ob) {}
+	char* get_buffer()
+	{
+		return ob.get_buffer();
+	}
+	void clear_and_reset_buffer()
+	{
+		ob.clear_and_reset_buffer();
+	}
+};
 //****************************************************************************
 //*                     mime_type
 //****************************************************************************
@@ -1105,13 +1180,34 @@ path_cat(
 template<class Body, class Allocator, class Send>
 void
 handle_request(beast::string_view doc_root
+	//, std::shared_ptr<ServerLogging> pServerLogging
+	//, std::shared_ptr<boost::timer::cpu_timer> pResponseTimer
+	//, std::shared_ptr<std::string const> pRemoteEndpoint
+	, std::shared_ptr<STRUCTSERVER> pStructServer
 	, http::request<Body, http::basic_fields<Allocator>>&& req
 	, Send&& send
 )
 {
+	// stream the request into a buffer
+	output_stream os;
+	os << req << std::endl;
+	std::string req_message = os.get_buffer();
+	OutputDebugStringA(req_message.c_str());
+	// get the start-line, user, and the user-agent from the request
+	auto filter_start_line = [](const std::string& message)
+	{
+		// return the first line of a request message
+		return message.substr(0, message.find('\r'));
+	};
+	std::string requestLogMessage = 
+		filter_start_line(req_message);
+	std::string user =
+		static_cast<std::string>(req[http::field::from]);
+	std::string user_agent =
+		static_cast<std::string>(req[http::field::user_agent]);
 	// Returns a bad request response
 	auto const bad_request =
-		[&, req]
+		[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
 	(beast::string_view why)
 	{
 		http::response<http::string_body> res{ 
@@ -1121,7 +1217,7 @@ handle_request(beast::string_view doc_root
 	};
 	// Returns a not found response
 	auto const not_found =
-		[&, req]
+		[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
 	(beast::string_view target)
 	{
 		http::response<http::string_body> res{ 
@@ -1131,7 +1227,7 @@ handle_request(beast::string_view doc_root
 	};
 	// Returns a server error response
 	auto const server_error =
-		[&, req]
+		[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
 	(beast::string_view what)
 	{
 		http::response<http::string_body> res{ 
@@ -1183,6 +1279,41 @@ handle_request(beast::string_view doc_root
 	// Respond to a TRACE request
 	if (req.method() == http::verb::trace) {
 		OutputDebugString(L"-> TRACE message received\n");
+		// the request is echoed back to the client,
+		// inside the payload of the response
+		// in this application a non-standard comment is added
+		http::string_body::value_type body;
+		body = std::string("server is alive\r\n")
+			+ req_message;
+		// prepare a response message
+		http::response<http::string_body> res{ http::status::ok, req.version() };
+		res.set(http::field::date, beast::string_view(date_for_http_response()));
+		res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+		res.set(http::field::content_type, beast::string_view("message/http"));
+		res.keep_alive(false);
+		res.content_length(body.size());
+		res.body() = std::move(body);
+		res.prepare_payload();
+		os.clear_and_reset_buffer();
+		os << res << std::endl;
+		std::string res_message = os.get_buffer();
+		OutputDebugStringA(res_message.c_str());
+		std::string responseLogMessage =
+			filter_start_line(res_message);
+		// stop the timer and log the HTTP request/response message
+		pStructServer->pResponseTimer->stop();
+		pStructServer->pServerLogging->store_log(
+			*pStructServer->remote_endpoint
+			, requestLogMessage
+			, responseLogMessage
+			, pStructServer->pResponseTimer->elapsed()
+			, user
+			, user_agent
+			, req_message
+			, res_message
+		);
+		// send the response message
+		return send(std::move(res));
 	}
 }
 //****************************************************************************
@@ -1245,15 +1376,27 @@ class session : public std::enable_shared_from_this<session>
 	beast::flat_buffer buffer_;
 	std::shared_ptr<std::string const> doc_root_;
 	http::request<http::string_body> req_;
+	//std::shared_ptr<ServerLogging> pServerLogging_;
+	//std::shared_ptr<boost::timer::cpu_timer> pResponseTimer_;
+	//std::shared_ptr<std::string const> pRemoteEndpoint_;
+	std::shared_ptr<STRUCTSERVER> pStructServer_;
 	std::shared_ptr<void> res_;
 	send_lambda lambda_;
 public:
 	// Take ownership of the stream
 	session(tcp::socket&& socket
 		, std::shared_ptr<std::string const> const& doc_root
+		//, std::shared_ptr<ServerLogging> const& pServerLogging
+		//, std::shared_ptr<boost::timer::cpu_timer> const& pResponseTimer
+		//, std::shared_ptr<std::string const> const& pRemoteEndpoint
+		, std::shared_ptr<STRUCTSERVER> const& pStructServer
 	)
 		: stream_(std::move(socket))
 		, doc_root_(doc_root)
+		//, pServerLogging_(pServerLogging)
+		//, pResponseTimer_(pResponseTimer)
+		//, pRemoteEndpoint_(pRemoteEndpoint)
+		, pStructServer_(pStructServer)
 		, lambda_(*this)
 	{}
 	// Start the asynchronous operation
@@ -1289,6 +1432,10 @@ public:
 			return fail(ec, "read");
 		// Send the response
 		handle_request(*doc_root_
+			//, pServerLogging_
+			//, pResponseTimer_
+			//, pRemoteEndpoint_
+			, pStructServer_
 			, std::move(req_)
 			, lambda_);
 	}
@@ -1330,20 +1477,24 @@ class listener : public std::enable_shared_from_this<listener>
 	net::io_context& ioc_;
 	tcp::acceptor acceptor_;
 	std::shared_ptr<std::string const> doc_root_;
-	std::shared_ptr<ServerLogging> pServerLogging_;
-	std::shared_ptr<boost::timer::cpu_timer> pTimer_;
+	//std::shared_ptr<ServerLogging> pServerLogging_;
+	//std::shared_ptr<boost::timer::cpu_timer> pTimer_;
+	std::shared_ptr<STRUCTSERVER> pStructServer_;
 public:
 	listener(net::io_context& ioc
 		, tcp::endpoint endpoint
 		, std::shared_ptr<std::string const> const& doc_root
-		, std::shared_ptr<ServerLogging> pServerLogging
-		, std::shared_ptr<boost::timer::cpu_timer> pTimer
+		//, std::shared_ptr<ServerLogging> pServerLogging
+		//, std::shared_ptr<boost::timer::cpu_timer> pTimer
+		, std::shared_ptr<STRUCTSERVER> pStructServer
+
 	)
 		: ioc_(ioc)
 		, acceptor_(net::make_strand(ioc))
 		, doc_root_(doc_root)
-		, pServerLogging_(pServerLogging)
-		, pTimer_(pTimer)
+		//, pServerLogging_(pServerLogging)
+		//, pTimer_(pTimer)
+		, pStructServer_(pStructServer)
 	{
 		OutputDebugString(L"<<constructor>> listener()\n");
 		beast::error_code ec;
@@ -1383,13 +1534,23 @@ public:
 	{
 		// the server is running, so the timer can be stopped
 		// and a message can be logged
-		pTimer_->stop();
-		pServerLogging_->store_log("0.0.0.0"
+		//pTimer_->stop();
+		//pServerLogging_->store_log("0.0.0.0"
+		//	, "start server"
+		//	, "server alive"
+		//	, pTimer_->elapsed()
+		//	, ""
+		//	, ""
+		//);
+		pStructServer_->pTimer->stop();
+		pStructServer_->pServerLogging->store_log("0.0.0.0"
 			, "start server"
 			, "server alive"
-			, pTimer_->elapsed()
+			, pStructServer_->pTimer->elapsed()
 			, ""
 			, ""
+			, "" // req_message, used only for client to server messages
+			, "" // res_message, used only for client to server messages
 		);
 		do_accept();
 	}
@@ -1413,9 +1574,28 @@ private:
 		}
 		else
 		{
+			// start timing, on a new connection
+			// the timer, times the duration for the server to respond
+			boost::timer::cpu_timer response_timer;
+			// get remote endpoint
+			std::string remote_endpoint = boost::lexical_cast<std::string>
+				(socket.remote_endpoint());
+			// construct pointers
+			//std::shared_ptr<boost::timer::cpu_timer> pResponseTimer_ =
+			//	std::make_shared<boost::timer::cpu_timer>(response_timer);
+			//std::shared_ptr<std::string> pRemoteEndpoint_ =
+			//	std::make_shared<std::string>(remote_endpoint);
+			pStructServer_->pResponseTimer =
+				std::make_shared<boost::timer::cpu_timer>(response_timer);
+			pStructServer_->remote_endpoint =
+				std::make_shared<std::string>(remote_endpoint);
 			// create the session and run it
 			std::make_shared<session>(std::move(socket)
 				, doc_root_
+				//, pServerLogging_
+				//, pResponseTimer_
+				//, pRemoteEndpoint_
+				, pStructServer_
 				)->run();
 		}
 		// Accept another connection
@@ -1428,8 +1608,12 @@ private:
 DWORD WINAPI http_server_async(LPVOID lpVoid)
 {
 	OutputDebugString(L"http_server_async\n");
-	ServerLogging* pServerLogging =
-		(ServerLogging*)((PSTRUCTSERVER)lpVoid)->pServerLogging;
+	auto pStructServer = std::make_shared<STRUCTSERVER>(
+		*((PSTRUCTSERVER)lpVoid)
+	);
+
+	//ServerLogging* pServerLogging =
+	//	(ServerLogging*)((PSTRUCTSERVER)lpVoid)->pServerLogging;
 
 	auto const address = net::ip::make_address("0.0.0.0");
 	auto const port = static_cast<unsigned short>(8080);
@@ -1441,20 +1625,26 @@ DWORD WINAPI http_server_async(LPVOID lpVoid)
 	// create pointers for the sake of the 
 	// boost::beast asynchronous http server
 	// 2) shared pointer to ServerLogging instance
-	auto const pServerLogging_ =
-		std::make_shared<ServerLogging>(*pServerLogging);
+	//auto const pServerLogging_ =
+	//	std::make_shared<ServerLogging>(*pServerLogging);
 	// 3) shared pointer to timer instance 
-	auto pTimer_ =
+	//auto pTimer_ =
+	//	std::make_shared<boost::timer::cpu_timer>(timer);
+	pStructServer->pTimer = 
 		std::make_shared<boost::timer::cpu_timer>(timer);
 
 	// The io_context is required for all I/O
 	net::io_context ioc{ threads };
 	// Create and launch a listening port
+	//std::make_shared<listener>(ioc
+	//	, tcp::endpoint{ address, port }
+	//	, doc_root
+	//	, pServerLogging_
+	//	, pTimer_)->run();
 	std::make_shared<listener>(ioc
 		, tcp::endpoint{ address, port }
 		, doc_root
-		, pServerLogging_
-		, pTimer_)->run();
+		, pStructServer)->run();
 
 	// Capture SIGABRT to perform a clean shutdown
 	net::signal_set signals(ioc, SIGABRT);
@@ -1486,12 +1676,21 @@ DWORD WINAPI http_server_async(LPVOID lpVoid)
 	for (auto& t : v)
 		t.join();
 	timer.stop();
-	pServerLogging->store_log("0.0.0.0"
+	//pServerLogging->store_log("0.0.0.0"
+	//	, "stop server"
+	//	, "server dead"
+	//	, timer.elapsed()
+	//	, ""
+	//	, ""
+	//);
+	pStructServer->pServerLogging->store_log("0.0.0.0"
 		, "stop server"
 		, "server dead"
 		, timer.elapsed()
 		, ""
 		, ""
+		, "" // req_message, used only for client to server messages
+		, "" // res_message, used only for client to server messages
 	);
 
 	return (DWORD)EXIT_SUCCESS;
