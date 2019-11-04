@@ -28,11 +28,6 @@ typedef std::tuple<
 	, td_resource_file_name
 	, td_resource_owner> tuple_resource_data;
 // typedef for http_server_async thread
-//typedef struct tagSTRUCTSERVER {
-//	HWND hWnd = NULL;
-//	PVOID pServerLogging = nullptr;
-//	std::string str_request = "";
-//} STRUCTSERVER, *PSTRUCTSERVER;
 typedef struct tagSTRUCTSERVER {
 	HWND hWnd = NULL;
 	std::shared_ptr<boost::timer::cpu_timer> pTimer = nullptr;
@@ -41,10 +36,10 @@ typedef struct tagSTRUCTSERVER {
 	std::shared_ptr<std::string> remote_endpoint = nullptr;
 } STRUCTSERVER, * PSTRUCTSERVER;
 
-// Global Variables:
 //****************************************************************************
 //*                     global
 //****************************************************************************
+// Global Variables:
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
@@ -53,10 +48,10 @@ PWCHAR pszTextBuffer = new WCHAR[BUFFER_MAX];
 StatusBar oStatusBar;
 Connect2SQLite oSqlite;
 
-// Forward declarations of functions included in this code module:
 //****************************************************************************
 //*                     prototype
 //****************************************************************************
+// Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -131,8 +126,6 @@ wWinMain(_In_ HINSTANCE hInstance
 
 	return (int)msg.wParam;
 }
-
-
 
 //
 //  FUNCTION: MyRegisterClass()
@@ -1193,18 +1186,21 @@ handle_request(beast::string_view doc_root
 	os << req << std::endl;
 	std::string req_message = os.get_buffer();
 	OutputDebugStringA(req_message.c_str());
-	// get the start-line, user, and the user-agent from the request
+	// lambda
 	auto filter_start_line = [](const std::string& message)
 	{
 		// return the first line of a request message
 		return message.substr(0, message.find('\r'));
 	};
-	std::string requestLogMessage = 
+	// get the start-line, user, and the user-agent from the request
+	std::string requestLogMessage =
 		filter_start_line(req_message);
 	std::string user =
 		static_cast<std::string>(req[http::field::from]);
 	std::string user_agent =
 		static_cast<std::string>(req[http::field::user_agent]);
+	std::string target =
+		static_cast<std::string>(req.target());
 	// Returns a bad request response
 	auto const bad_request =
 		[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
@@ -1268,32 +1264,30 @@ handle_request(beast::string_view doc_root
 		OutputDebugString(L"-> OPTIONS message received\n");
 		// not implemented yet
 	}
-	// Respond to a POST request
-	if (req.method() == http::verb::post) {
-		OutputDebugString(L"-> POST message received\n");
-	}
-	// Respond to a PUT request
-	if (req.method() == http::verb::put) {
-		OutputDebugString(L"-> PUT message received\n");
-	}
-	// Respond to a TRACE request
-	if (req.method() == http::verb::trace) {
-		OutputDebugString(L"-> TRACE message received\n");
-		// the request is echoed back to the client,
-		// inside the payload of the response
-		// in this application a non-standard comment is added
-		http::string_body::value_type body;
-		body = std::string("server is alive\r\n")
-			+ req_message;
+	// lambda
+	auto send_response = [&](
+		const std::string& result
+		, const std::string& content_type
+		, const std::string& response_payload
+		)
+	{
 		// prepare a response message
-		http::response<http::string_body> res{ http::status::ok, req.version() };
-		res.set(http::field::date, beast::string_view(date_for_http_response()));
+		http::response<http::string_body> res;
+		if (result == "ok")
+			res.result(http::status::ok);
+		if (result == "no_content")
+			res.result(http::status::no_content);
+		res.version(11);
 		res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-		res.set(http::field::content_type, beast::string_view("message/http"));
-		res.keep_alive(false);
-		res.content_length(body.size());
-		res.body() = std::move(body);
+		res.set(http::field::date, beast::string_view(date_for_http_response()));
+		// for post content_type is "text/html"
+		res.set(http::field::content_type, content_type);
+		res.keep_alive(req.keep_alive());
+		res.content_length(response_payload.length());
+		res.body() = response_payload;
 		res.prepare_payload();
+		// stream the respond into a std::string, and filter
+		// the respond start-line for logging
 		os.clear_and_reset_buffer();
 		os << res << std::endl;
 		std::string res_message = os.get_buffer();
@@ -1314,6 +1308,76 @@ handle_request(beast::string_view doc_root
 		);
 		// send the response message
 		return send(std::move(res));
+	};
+	// Respond to a POST request
+	if (req.method() == http::verb::post) {
+		OutputDebugString(L"-> POST message received\n");
+		// a POST request can mean two things
+		// 1) a request to access the server, from an app. or a browser
+		// 2) a file upload from a browser into the user space
+		// check if the POST message is concerning a login
+		if (target == "/login"
+			|| target == "/register"
+			|| target == "/register_confirm"
+			|| target == "/reset_password"
+			|| target == "/reset_password_confirm"
+			)
+		{
+			std::string response_payload = target + ": ";
+			// remove forward slash from response_payload
+			response_payload.erase(0, 1);
+			// check which handler suits the target
+			if (target == "/login")
+			{
+			}
+			if (target == "/register")
+			{
+			}
+			if (target == "/register_confirm")
+			{
+			}
+			if (target == "/reset_password")
+			{
+			}
+			if (target == "/reset_password_confirm")
+			{
+			}
+			// send the response message
+			return send_response(
+				"ok"
+				, "text/html"
+				, response_payload
+			);
+		}
+		// a file upload from a browser into the user space
+		// save the file upload to disk
+		// TODO ...
+		// send the response message
+		return send_response(
+			"no_content"
+			, "text/html"
+			, ""
+		);
+	}
+	// Respond to a PUT request
+	if (req.method() == http::verb::put) {
+		OutputDebugString(L"-> PUT message received\n");
+	}
+	// Respond to a TRACE request
+	if (req.method() == http::verb::trace) {
+		OutputDebugString(L"-> TRACE message received\n");
+		// the request is echoed back to the client,
+		// inside the payload of the response
+		// in this application a non-standard comment is added
+		http::string_body::value_type response_payload;
+		response_payload = std::string("server is alive\r\n")
+			+ req_message;
+		// send the response message
+		return send_response(
+			"ok"
+			, "message/http"
+			, response_payload
+		);
 	}
 }
 //****************************************************************************
