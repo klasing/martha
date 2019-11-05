@@ -32,6 +32,7 @@
 #include <iomanip>
 #include <malloc.h>
 #include <memory.h>
+#include <random>
 #include <sstream>
 #include <stdlib.h>
 #include <string>
@@ -41,3 +42,7 @@
 #include <time.h>
 #include <tuple>
 #include <vector>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>

@@ -10,7 +10,6 @@ using namespace std;
 //*                     typedef
 //****************************************************************************
 // typedef for sqlite
-// typedef for sqlite
 typedef std::string
 	  td_id
 	, td_time_of_creation
@@ -178,7 +177,8 @@ public:
 			return execute(sql, nullptr);
 		}
 	}
-	int insertRegisterUser(const string& user_email_address
+	int insertRegisterUser(const std::string current_gmt
+		, const string& user_email_address
 		, const string& user_password
 	)
 	{
@@ -191,9 +191,11 @@ public:
 
 		// insert into table
 		sql = string("INSERT INTO user_access_login_data(")
-			+ "id, user_email_address, user_password) VALUES ("
+			+ "id, time_of_creation, user_email_address, user_password) VALUES ("
 			+ key
 			+ ", '"
+			+ current_gmt
+			+ "', '"
 			+ user_email_address
 			+ "', '"
 			+ user_password

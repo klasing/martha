@@ -1,2 +1,7 @@
-(Mon, 04 Nov 2019 15:56:06 GMT#192.168.178.14:54569#TRACE / HTTP/1.1#HTTP/1.1 200 OK#5.130300##Boost.Beast/248)
-(Mon, 04 Nov 2019 15:56:54 GMT#192.168.178.14:54570#POST /login HTTP/1.1#HTTP/1.1 200 OK#146.475600#klasing1159@gmail.com#Boost.Beast/248)
+(Tue, 05 Nov 2019 11:17:01 GMT#192.168.178.14:56957#GET /server_space/popup-login.html HTTP/1.1#HTTP/1.1 200 OK
+#36.253300##Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))
+(Tue, 05 Nov 2019 11:17:01 GMT#192.168.178.14:56957#GET /server_space/css/style.css HTTP/1.1#HTTP/1.1 200 OK
+#36.253300##Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))
+(Tue, 05 Nov 2019 11:17:01 GMT#192.168.178.14:56957#GET /server_space/js/script.js HTTP/1.1#HTTP/1.1 200 OK
+#36.253300##Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))
+(Tue, 05 Nov 2019 11:17:13 GMT#192.168.178.14:56960#POST /login HTTP/1.1#HTTP/1.1 200 OK#30.525500#klasing1159@gmail.com#Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36)

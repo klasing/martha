@@ -30,8 +30,11 @@ typedef std::tuple<
 // typedef for http_server_async thread
 typedef struct tagSTRUCTSERVER {
 	HWND hWnd = NULL;
-	std::shared_ptr<boost::timer::cpu_timer> pTimer = nullptr;
 	std::shared_ptr<ServerLogging> pServerLogging = nullptr;
+	std::shared_ptr<Connect2SQLite> pSqlite = nullptr;
+	std::shared_ptr<HandlerForRegister> pHandlerForRegister = nullptr;
+	std::shared_ptr<HandlerForResetPassword> pHandlerForResetPassword = nullptr;
+	std::shared_ptr<boost::timer::cpu_timer> pTimer = nullptr;
 	std::shared_ptr<boost::timer::cpu_timer> pResponseTimer = nullptr;
 	std::shared_ptr<std::string> remote_endpoint = nullptr;
 } STRUCTSERVER, * PSTRUCTSERVER;
@@ -246,9 +249,10 @@ WndProc(HWND hWnd
 		);
 		// initialize structure for asynchronous http server
 		pStructServer->hWnd = hWnd;
-		//pStructServer->pServerLogging = &oServerLogging;
 		pStructServer->pServerLogging = 
 			std::make_shared<ServerLogging>(oServerLogging);
+		pStructServer->pSqlite =
+			std::make_shared<Connect2SQLite>(oSqlite);
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	} // eof WM_NCCREATE
 	case WM_SIZE:
@@ -1033,6 +1037,22 @@ convert_str_to_wstr(const std::string& str)
 {
 	return std::wstring(str.begin(), str.end()).c_str();
 }
+
+//****************************************************************************
+//*                     generate_random_string
+//****************************************************************************
+std::string
+generate_random_string()
+{
+	const int RANDOM_CHARACTER_MAX = 16;
+	std::string random_string = "";
+	std::mt19937 eng(static_cast<unsigned long>(time(nullptr)));
+	uniform_int_distribution<int> dist(65, 90);
+	for (int i = 0; i < RANDOM_CHARACTER_MAX; i++)
+		random_string += dist(eng);
+	return random_string;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //                      boost part
 //////////////////////////////////////////////////////////////////////////////
@@ -1045,6 +1065,60 @@ using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 //*                     global
 //****************************************************************************
 const int SECONDS_BEFORE_EXPIRING = 300;
+//****************************************************************************
+//*                     filter_email_password_code
+//****************************************************************************
+template<class Body, class Allocator>
+void filter_email_password_code(
+	http::request<Body, http::basic_fields<Allocator>> req
+	, std::string& user_email_address
+	, std::string& user_password
+	, std::string& user_code
+)
+{
+	std::string payload = req.body();
+	// if user agent not equals Boost.Beast/248
+	// then it is a browser request
+	// replace %40 for @ in the user_email_address
+	// (when user_agent is not Boost.Beast/248, i.d. a browser)
+	size_t pos = payload.find("%40", 0);
+	if (pos != std::string::npos)
+		payload = payload.replace(pos, 3, "@");
+
+	size_t iBegin = 0, iEnd = 0, iLength = 0, iTemp;
+	// filter user_email_address
+	iTemp = iEnd;
+	iBegin = payload.find_first_of("=", iTemp);
+	iEnd = (payload.find("&", iBegin) != std::string::npos) ?
+		(payload.find("&", iBegin) - 1) :
+		payload.length() - 1;
+	iLength = iEnd - iBegin;
+	iBegin++;
+	user_email_address = payload.substr(iBegin, iLength);
+
+	// filter user_password
+	iTemp = iEnd;
+	iBegin = payload.find_first_of("=", iTemp);
+	iEnd = (payload.find("&", iBegin) != std::string::npos) ?
+		(payload.find("&", iBegin) - 1) :
+		payload.length() - 1;
+	iLength = iEnd - iBegin;
+	iBegin++;
+	user_password = payload.substr(iBegin, iLength);
+
+	// filter user_code
+	iTemp = iEnd;
+	iBegin = payload.find_first_of("=", iTemp);
+	if (iBegin == std::string::npos)
+		// no user code available
+		return;
+	iEnd = (payload.find("&", iBegin) != std::string::npos) ?
+		(payload.find("&", iBegin) - 1) :
+		payload.length() - 1;
+	iLength = iEnd - iBegin;
+	iBegin++;
+	user_code = payload.substr(iBegin, iLength);
+}
 //****************************************************************************
 //*                     output_buffer
 //****************************************************************************
@@ -1201,70 +1275,8 @@ handle_request(beast::string_view doc_root
 		static_cast<std::string>(req[http::field::user_agent]);
 	std::string target =
 		static_cast<std::string>(req.target());
-	// Returns a bad request response
-	auto const bad_request =
-		[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
-	(beast::string_view why)
-	{
-		http::response<http::string_body> res{ 
-			http::status::bad_request, req.version()
-		};
-		return res;
-	};
-	// Returns a not found response
-	auto const not_found =
-		[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
-	(beast::string_view target)
-	{
-		http::response<http::string_body> res{ 
-			http::status::not_found, req.version()
-		};
-		return res;
-	};
-	// Returns a server error response
-	auto const server_error =
-		[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
-	(beast::string_view what)
-	{
-		http::response<http::string_body> res{ 
-			http::status::internal_server_error, req.version()
-		};
-		return res;
-	};
-	// Make sure we can handle the method
-	if (req.method() != http::verb::connect &&
-		req.method() != http::verb::delete_ &&
-		req.method() != http::verb::get &&
-		req.method() != http::verb::head &&
-		req.method() != http::verb::options &&
-		req.method() != http::verb::post &&
-		req.method() != http::verb::put &&
-		req.method() != http::verb::trace)
-		return send(bad_request("Unknown HTTP-method"));
-	// Respond to a CONNECT request
-	if (req.method() == http::verb::connect) {
-		OutputDebugString(L"-> CONNECT message received\n");
-		// not implemented yet
-	}
-	// Respond to a DELETE request
-	if (req.method() == http::verb::delete_) {
-		OutputDebugString(L"-> DELETE message received\n");
-		// not implemented yet
-	}
-	// Respond to a GET request
-	if (req.method() == http::verb::get) {
-		OutputDebugString(L"-> GET message received\n");
-	}
-	// Respond to a HEAD request
-	if (req.method() == http::verb::head) {
-		OutputDebugString(L"-> HEAD message received\n");
-	}
-	// Respond to a OPTIONS request
-	if (req.method() == http::verb::options) {
-		OutputDebugString(L"-> OPTIONS message received\n");
-		// not implemented yet
-	}
-	// lambda
+	// lambda for preparing, logging, and sending
+	// a response
 	auto send_response = [&](
 		const std::string& result
 		, const std::string& content_type
@@ -1273,6 +1285,14 @@ handle_request(beast::string_view doc_root
 	{
 		// prepare a response message
 		http::response<http::string_body> res;
+		if (result == "bad_request")
+			res.result(http::status::bad_request);
+		if (result == "not_found")
+			// "The resource '" + std::string(target) + "' was not found.";
+			res.result(http::status::not_found);
+		if (result == "server_error")
+			// "An error occurred: '" + std::string(what) + "'";
+			res.result(http::status::internal_server_error);
 		if (result == "ok")
 			res.result(http::status::ok);
 		if (result == "no_content")
@@ -1286,8 +1306,8 @@ handle_request(beast::string_view doc_root
 		res.content_length(response_payload.length());
 		res.body() = response_payload;
 		res.prepare_payload();
-		// stream the respond into a std::string, and filter
-		// the respond start-line for logging
+		// stream the response into a std::string, and filter
+		// the response start-line for logging
 		os.clear_and_reset_buffer();
 		os << res << std::endl;
 		std::string res_message = os.get_buffer();
@@ -1309,6 +1329,178 @@ handle_request(beast::string_view doc_root
 		// send the response message
 		return send(std::move(res));
 	};
+	// lambda for solely sending a response
+	auto send_response_with_prepared_res = [&](
+		http::response<http::file_body> res
+		)
+	{
+		// stream the response into a std::string, and filter
+		// the response start-line for logging
+		os.clear_and_reset_buffer();
+		os << res << std::endl;
+		std::string res_message = os.get_buffer();
+		OutputDebugStringA(res_message.c_str());
+		std::string responseLogMessage =
+			filter_start_line(res_message);
+		// stop the timer and log the HTTP request/response message
+		pStructServer->pResponseTimer->stop();
+		pStructServer->pServerLogging->store_log(
+			*pStructServer->remote_endpoint
+			, requestLogMessage
+			, responseLogMessage
+			, pStructServer->pResponseTimer->elapsed()
+			, user
+			, user_agent
+			, req_message
+			, res_message
+		);
+		// send the response message
+		return send(std::move(res));
+	};
+	// TODO implement just like the bad_request response
+	// Returns a not found response
+	//auto const not_found =
+	//	[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
+	//(beast::string_view target)
+	//{
+	//	http::response<http::string_body> res{ 
+	//		http::status::not_found, req.version()
+	//	};
+	//	return res;
+	//};
+	// TODO implement just like the bad_request response
+	// Returns a server error response
+	//auto const server_error =
+	//	[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
+	//(beast::string_view what)
+	//{
+	//	http::response<http::string_body> res{ 
+	//		http::status::internal_server_error, req.version()
+	//	};
+	//	return res;
+	//};
+	// application user_agent:
+	const std::string APP_VALUE_USER_AGENT = "Boost.Beast/248";
+	// Google Chrome browser user_agent:
+	const std::string CHROME_VALUE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)";
+	// Make sure we can handle the method
+	if (req.method() != http::verb::connect &&
+		req.method() != http::verb::delete_ &&
+		req.method() != http::verb::get &&
+		req.method() != http::verb::head &&
+		req.method() != http::verb::options &&
+		req.method() != http::verb::post &&
+		req.method() != http::verb::put &&
+		req.method() != http::verb::trace)
+		// Returns a bad request response
+		return send_response(
+			"bad_request"
+			, "text/html"
+			, "Unknown HTTP-method"
+		);
+	// Respond to a CONNECT request
+	if (req.method() == http::verb::connect) {
+		OutputDebugString(L"-> CONNECT message received\n");
+		// not implemented yet
+	}
+	// Respond to a DELETE request
+	if (req.method() == http::verb::delete_) {
+		OutputDebugString(L"-> DELETE message received\n");
+		// not implemented yet
+	}
+	// Respond to a GET request
+	if (req.method() == http::verb::get) {
+		OutputDebugString(L"-> GET message received\n");
+		// a GET request can mean three things
+		// 1) a download request for a file from an app.
+		// 2) a download request for a file within the user space
+		//    from a browser
+		// 3) a download request for a file within the server space
+		//    from a browser (a file that renders the browser's layout)
+		if (user_agent == APP_VALUE_USER_AGENT)
+		{
+			// TODO
+		}
+		// cutoff user_agent string to a point where it matches
+		// the const value for a browser, there is no differentiation
+		// anymore between a Chrome and an Edge browser
+		user_agent = user_agent.substr(0, user_agent.find(" Chrome/"));
+		if (user_agent == CHROME_VALUE_USER_AGENT)
+		{
+			// if the req.target contains the substring:
+			// '/server_space/user_space/'
+			// then a file from within the user_space has to be
+			// downloaded
+			// the user_email_address from the user, who downloads
+			// with a browser, comes in the cookie field of the GET
+			// so the user can be logged
+			std::string user =
+				static_cast<std::string>(req[http::field::cookie]);
+			std::string path = "";
+			std::string s = req.target().to_string();
+			std::string t = "/server_space";
+			if (s.find("user_space") < std::string::npos)
+			{
+				// the string 's' contains: "/server_space/user_space",
+				// so it's a file download from a browser request
+				s = s.substr(t.length(), s.length() - t.length());
+				path = path_cat(doc_root, s);
+			}
+			else
+				// its a request from a browser for a rendering file
+				// inside the server_space
+				path = path_cat(doc_root, req.target());
+			// Request path must be absolute and not contain "..".
+			if (req.target().empty() ||
+				req.target()[0] != '/' ||
+				req.target().find("..") != beast::string_view::npos)
+				return send_response(
+					"bad_request"
+					, "text/html"
+					, "Illegal request-target"
+				);
+			if (req.target().back() == '/')
+				path.append("index.html");
+			// Attempt to open the file
+			beast::error_code ec;
+			http::file_body::value_type body;
+			body.open(path.c_str(), beast::file_mode::scan, ec);
+			// Handle the case where the file doesn't exist
+			if (ec == beast::errc::no_such_file_or_directory)
+				return send_response(
+					"not_found"
+					, "text/html"
+					, static_cast<std::string>(req.target())
+				);
+			// Handle an unknown error
+			if (ec)
+				return send_response(
+					"server_error"
+					, "text/html"
+					, ec.message()
+				);
+			// Cache the size since we need it after the move
+			auto const size = body.size();
+			http::response<http::file_body> res{
+				std::piecewise_construct,
+				std::make_tuple(std::move(body)),
+				std::make_tuple(http::status::ok, req.version()) };
+			res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+			res.set(http::field::content_type, mime_type(path));
+			res.content_length(size);
+			res.keep_alive(req.keep_alive());
+			return send_response_with_prepared_res(std::move(res));
+		}
+	}
+	// Respond to a HEAD request
+	if (req.method() == http::verb::head) {
+		OutputDebugString(L"-> HEAD message received\n");
+	}
+	// Respond to a OPTIONS request
+	if (req.method() == http::verb::options) {
+		OutputDebugString(L"-> OPTIONS message received\n");
+		// not implemented yet
+	}
 	// Respond to a POST request
 	if (req.method() == http::verb::post) {
 		OutputDebugString(L"-> POST message received\n");
@@ -1323,24 +1515,67 @@ handle_request(beast::string_view doc_root
 			|| target == "/reset_password_confirm"
 			)
 		{
+			std::string user_email_address = "";
+			std::string user_password = "";
+			std::string user_code = "";
+			// filter the user_email_address, user_password, and
+			// the user_code from the request
+			filter_email_password_code(req
+				, user_email_address
+				, user_password
+				, user_code
+			);
 			std::string response_payload = target + ": ";
 			// remove forward slash from response_payload
 			response_payload.erase(0, 1);
 			// check which handler suits the target
 			if (target == "/login")
 			{
+				HandlerForLogin handlerForLogin;
+				handlerForLogin.handle_login(
+					user_email_address
+					, user_password
+					, pStructServer->pSqlite
+					, response_payload
+				);
 			}
 			if (target == "/register")
 			{
+				pStructServer->pHandlerForRegister->handle_register(
+					user_email_address
+					, user_password
+					, pStructServer->pSqlite
+					, response_payload
+				);
 			}
 			if (target == "/register_confirm")
 			{
+				pStructServer->pHandlerForRegister->handle_register_confirm(
+					user_email_address
+					, user_password
+					, user_code
+					, pStructServer->pSqlite
+					, response_payload
+				);
 			}
 			if (target == "/reset_password")
 			{
+				pStructServer->pHandlerForResetPassword->handle_reset_password(
+					user_email_address
+					, user_password
+					, pStructServer->pSqlite
+					, response_payload
+				);
 			}
 			if (target == "/reset_password_confirm")
 			{
+				pStructServer->pHandlerForResetPassword->handle_reset_password_confirm(
+					user_email_address
+					, user_password
+					, user_code
+					, pStructServer->pSqlite
+					, response_payload
+				);
 			}
 			// send the response message
 			return send_response(
@@ -1561,6 +1796,12 @@ public:
 		, pStructServer_(pStructServer)
 	{
 		OutputDebugString(L"<<constructor>> listener()\n");
+		HandlerForRegister handlerForRegister;
+		pStructServer_->pHandlerForRegister =
+			std::make_shared<HandlerForRegister>(handlerForRegister);
+		HandlerForResetPassword handlerForResetPassword;
+		pStructServer_->pHandlerForResetPassword =
+			std::make_shared<HandlerForResetPassword>(handlerForResetPassword);
 		beast::error_code ec;
 		// Open the acceptor
 		acceptor_.open(endpoint.protocol(), ec);
