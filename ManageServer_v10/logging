@@ -1,7 +1,4 @@
-(Tue, 05 Nov 2019 11:17:01 GMT#192.168.178.14:56957#GET /server_space/popup-login.html HTTP/1.1#HTTP/1.1 200 OK
-#36.253300##Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))
-(Tue, 05 Nov 2019 11:17:01 GMT#192.168.178.14:56957#GET /server_space/css/style.css HTTP/1.1#HTTP/1.1 200 OK
-#36.253300##Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))
-(Tue, 05 Nov 2019 11:17:01 GMT#192.168.178.14:56957#GET /server_space/js/script.js HTTP/1.1#HTTP/1.1 200 OK
-#36.253300##Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))
-(Tue, 05 Nov 2019 11:17:13 GMT#192.168.178.14:56960#POST /login HTTP/1.1#HTTP/1.1 200 OK#30.525500#klasing1159@gmail.com#Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36)
+(Wed, 06 Nov 2019 14:42:09 GMT#192.168.178.14:59925#GET /server_space/js/script.js HTTP/1.1#HTTP/1.1 200 OK
+#15.341900#user_email_address=guest@example.com#Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))
+(Wed, 06 Nov 2019 14:42:17 GMT#192.168.178.14:59927#GET /server_space/user_space/jayne.txt HTTP/1.1#HTTP/1.1 200 OK
+#10.270700#user_email_address=guest@example.com#Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko))

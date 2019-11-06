@@ -1255,52 +1255,56 @@ handle_request(beast::string_view doc_root
 	, Send&& send
 )
 {
+	// application user_agent:
+	const std::string APP_VALUE_USER_AGENT = "Boost.Beast/248";
+	// not sure if browsers will keep this string constant over time...
+	// Google Chrome browser user_agent:
+	const std::string CHROME_VALUE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)";
+
 	// stream the request into a buffer
 	output_stream os;
 	os << req << std::endl;
 	std::string req_message = os.get_buffer();
 	OutputDebugStringA(req_message.c_str());
-	// lambda
+
 	auto filter_start_line = [](const std::string& message)
 	{
 		// return the first line of a request message
 		return message.substr(0, message.find('\r'));
 	};
-	// get the start-line, user, and the user-agent from the request
+
+	// get the start-line
 	std::string requestLogMessage =
 		filter_start_line(req_message);
-	std::string user =
-		static_cast<std::string>(req[http::field::from]);
+	// get the user_agent
 	std::string user_agent =
 		static_cast<std::string>(req[http::field::user_agent]);
+	// get the user
+	std::string user = "";
+	if (user_agent == APP_VALUE_USER_AGENT)
+		user = static_cast<std::string>(req[http::field::from]);
+	user_agent = user_agent.substr(0, user_agent.find(" Chrome/"));
+	if (user_agent == CHROME_VALUE_USER_AGENT)
+	{
+		user = static_cast<std::string>(req[http::field::from]);
+		if (user == "")
+			user = static_cast<std::string>(req[http::field::cookie]);
+	}
+
+	// get the target
 	std::string target =
 		static_cast<std::string>(req.target());
-	// lambda for preparing, logging, and sending
-	// a response
-	auto send_response = [&](
-		const std::string& result
+
+	auto send_response = [&](auto status
 		, const std::string& content_type
-		, const std::string& response_payload
-		)
+		, const std::string& response_payload)
 	{
 		// prepare a response message
 		http::response<http::string_body> res;
-		if (result == "bad_request")
-			res.result(http::status::bad_request);
-		if (result == "not_found")
-			// "The resource '" + std::string(target) + "' was not found.";
-			res.result(http::status::not_found);
-		if (result == "server_error")
-			// "An error occurred: '" + std::string(what) + "'";
-			res.result(http::status::internal_server_error);
-		if (result == "ok")
-			res.result(http::status::ok);
-		if (result == "no_content")
-			res.result(http::status::no_content);
+		res.result(status);
 		res.version(11);
 		res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
 		res.set(http::field::date, beast::string_view(date_for_http_response()));
-		// for post content_type is "text/html"
 		res.set(http::field::content_type, content_type);
 		res.keep_alive(req.keep_alive());
 		res.content_length(response_payload.length());
@@ -1329,10 +1333,9 @@ handle_request(beast::string_view doc_root
 		// send the response message
 		return send(std::move(res));
 	};
-	// lambda for solely sending a response
-	auto send_response_with_prepared_res = [&](
-		http::response<http::file_body> res
-		)
+
+	auto const send_error = [&](
+		http::response<http::string_body> res)
 	{
 		// stream the response into a std::string, and filter
 		// the response start-line for logging
@@ -1354,35 +1357,57 @@ handle_request(beast::string_view doc_root
 			, req_message
 			, res_message
 		);
-		// send the response message
 		return send(std::move(res));
 	};
-	// TODO implement just like the bad_request response
+
+	// Returns a bad request response
+	auto const bad_request = [&, req](beast::string_view why)
+	{
+		// prepare a response message
+		http::response<http::string_body> res;
+		res.result(http::status::bad_request);
+		res.version(11);
+		res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+		res.set(http::field::date, beast::string_view(date_for_http_response()));
+		res.set(http::field::content_type, "text/html");
+		res.keep_alive(req.keep_alive());
+		res.body() = std::string(why);
+		res.prepare_payload();
+		return send_error(res);
+	};
+
 	// Returns a not found response
-	//auto const not_found =
-	//	[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
-	//(beast::string_view target)
-	//{
-	//	http::response<http::string_body> res{ 
-	//		http::status::not_found, req.version()
-	//	};
-	//	return res;
-	//};
-	// TODO implement just like the bad_request response
+	auto const not_found = [&, req](beast::string_view target)
+	{
+		// prepare a response message
+		http::response<http::string_body> res;
+		res.result(http::status::not_found);
+		res.version(11);
+		res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+		res.set(http::field::date, beast::string_view(date_for_http_response()));
+		res.set(http::field::content_type, "text/html");
+		res.keep_alive(req.keep_alive());
+		res.body() = "the resource '" + std::string(target) + "' was not found";
+		res.prepare_payload();
+		return send_error(res);
+	};
+
 	// Returns a server error response
-	//auto const server_error =
-	//	[&, req, pStructServer]//pServerLogging, pResponseTimer, pRemoteEndpoint]
-	//(beast::string_view what)
-	//{
-	//	http::response<http::string_body> res{ 
-	//		http::status::internal_server_error, req.version()
-	//	};
-	//	return res;
-	//};
-	// application user_agent:
-	const std::string APP_VALUE_USER_AGENT = "Boost.Beast/248";
-	// Google Chrome browser user_agent:
-	const std::string CHROME_VALUE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)";
+	auto const server_error = [&, req](beast::string_view what)
+	{
+		// prepare a response message
+		http::response<http::string_body> res;
+		res.result(http::status::internal_server_error);
+		res.version(11);
+		res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+		res.set(http::field::date, beast::string_view(date_for_http_response()));
+		res.set(http::field::content_type, "text/html");
+		res.keep_alive(req.keep_alive());
+		res.body() = "an error occurred: '" + std::string(what) + "'";
+		res.prepare_payload();
+		return send_error(res);
+	};
+
 	// Make sure we can handle the method
 	if (req.method() != http::verb::connect &&
 		req.method() != http::verb::delete_ &&
@@ -1392,73 +1417,32 @@ handle_request(beast::string_view doc_root
 		req.method() != http::verb::post &&
 		req.method() != http::verb::put &&
 		req.method() != http::verb::trace)
-		// Returns a bad request response
-		return send_response(
-			"bad_request"
-			, "text/html"
-			, "Unknown HTTP-method"
-		);
+		return bad_request("unknown HTTP-method");
+
 	// Respond to a CONNECT request
 	if (req.method() == http::verb::connect) {
 		OutputDebugString(L"-> CONNECT message received\n");
 		// not implemented yet
 	}
+
 	// Respond to a DELETE request
 	if (req.method() == http::verb::delete_) {
 		OutputDebugString(L"-> DELETE message received\n");
 		// not implemented yet
 	}
+
 	// Respond to a GET request
 	if (req.method() == http::verb::get) {
 		OutputDebugString(L"-> GET message received\n");
-		// a GET request can mean three things
-		// 1) a download request for a file from an app.
-		// 2) a download request for a file within the user space
-		//    from a browser
-		// 3) a download request for a file within the server space
-		//    from a browser (a file that renders the browser's layout)
 		if (user_agent == APP_VALUE_USER_AGENT)
 		{
-			// TODO
-		}
-		// cutoff user_agent string to a point where it matches
-		// the const value for a browser, there is no differentiation
-		// anymore between a Chrome and an Edge browser
-		user_agent = user_agent.substr(0, user_agent.find(" Chrome/"));
-		if (user_agent == CHROME_VALUE_USER_AGENT)
-		{
-			// if the req.target contains the substring:
-			// '/server_space/user_space/'
-			// then a file from within the user_space has to be
-			// downloaded
-			// the user_email_address from the user, who downloads
-			// with a browser, comes in the cookie field of the GET
-			// so the user can be logged
-			std::string user =
-				static_cast<std::string>(req[http::field::cookie]);
-			std::string path = "";
-			std::string s = req.target().to_string();
-			std::string t = "/server_space";
-			if (s.find("user_space") < std::string::npos)
-			{
-				// the string 's' contains: "/server_space/user_space",
-				// so it's a file download from a browser request
-				s = s.substr(t.length(), s.length() - t.length());
-				path = path_cat(doc_root, s);
-			}
-			else
-				// its a request from a browser for a rendering file
-				// inside the server_space
-				path = path_cat(doc_root, req.target());
+			OutputDebugString(L"-> from an application\n");
+			std::string path = path_cat(doc_root, req.target());
 			// Request path must be absolute and not contain "..".
 			if (req.target().empty() ||
 				req.target()[0] != '/' ||
 				req.target().find("..") != beast::string_view::npos)
-				return send_response(
-					"bad_request"
-					, "text/html"
-					, "Illegal request-target"
-				);
+				return bad_request("Illegal request-target");
 			if (req.target().back() == '/')
 				path.append("index.html");
 			// Attempt to open the file
@@ -1467,18 +1451,10 @@ handle_request(beast::string_view doc_root
 			body.open(path.c_str(), beast::file_mode::scan, ec);
 			// Handle the case where the file doesn't exist
 			if (ec == beast::errc::no_such_file_or_directory)
-				return send_response(
-					"not_found"
-					, "text/html"
-					, static_cast<std::string>(req.target())
-				);
+				return not_found(req.target());
 			// Handle an unknown error
 			if (ec)
-				return send_response(
-					"server_error"
-					, "text/html"
-					, ec.message()
-				);
+				return server_error(ec.message());
 			// Cache the size since we need it after the move
 			auto const size = body.size();
 			http::response<http::file_body> res{
@@ -1486,27 +1462,170 @@ handle_request(beast::string_view doc_root
 				std::make_tuple(std::move(body)),
 				std::make_tuple(http::status::ok, req.version()) };
 			res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+			res.set(http::field::date, beast::string_view(date_for_http_response()));
 			res.set(http::field::content_type, mime_type(path));
 			res.content_length(size);
 			res.keep_alive(req.keep_alive());
-			return send_response_with_prepared_res(std::move(res));
+			// stream the response into a std::string, and filter
+			// the response start-line for logging
+			os.clear_and_reset_buffer();
+			os << res << std::endl;
+			std::string res_message = os.get_buffer();
+			OutputDebugStringA(res_message.c_str());
+			std::string responseLogMessage =
+				filter_start_line(res_message);
+			// stop the timer and log the HTTP request/response message
+			pStructServer->pResponseTimer->stop();
+			pStructServer->pServerLogging->store_log(
+				*pStructServer->remote_endpoint
+				, requestLogMessage
+				, responseLogMessage
+				, pStructServer->pResponseTimer->elapsed()
+				, user
+				, user_agent
+				, req_message
+				, res_message
+			);
+			return send(std::move(res));
+		}
+		user_agent = user_agent.substr(0, user_agent.find(" Chrome/"));
+		if (user_agent == CHROME_VALUE_USER_AGENT)
+		{
+			OutputDebugString(L"-> from a browser\n");
+			std::string s = req.target().to_string();
+			if (s.find("user_space") == std::string::npos)
+			{
+				OutputDebugString(L"-> for rendering the browser layout\n");
+				std::string path = path_cat(doc_root, req.target());
+				// Request path must be absolute and not contain "..".
+				if (req.target().empty() ||
+					req.target()[0] != '/' ||
+					req.target().find("..") != beast::string_view::npos)
+					return bad_request("Illegal request-target");
+				if (req.target().back() == '/')
+					path.append("index.html");
+				// Attempt to open the file
+				beast::error_code ec;
+				http::file_body::value_type body;
+				body.open(path.c_str(), beast::file_mode::scan, ec);
+				// Handle the case where the file doesn't exist
+				if (ec == beast::errc::no_such_file_or_directory)
+					return not_found(req.target());
+				// Handle an unknown error
+				if (ec)
+					return server_error(ec.message());
+				// Cache the size since we need it after the move
+				auto const size = body.size();
+				http::response<http::file_body> res{
+					std::piecewise_construct,
+					std::make_tuple(std::move(body)),
+					std::make_tuple(http::status::ok, req.version()) };
+				res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+				res.set(http::field::date, beast::string_view(date_for_http_response()));
+				res.set(http::field::content_type, mime_type(path));
+				res.content_length(size);
+				res.keep_alive(req.keep_alive());
+				// stream the response into a std::string, and filter
+				// the response start-line for logging
+				os.clear_and_reset_buffer();
+				os << res << std::endl;
+				std::string res_message = os.get_buffer();
+				OutputDebugStringA(res_message.c_str());
+				std::string responseLogMessage =
+					filter_start_line(res_message);
+				// stop the timer and log the HTTP request/response message
+				pStructServer->pResponseTimer->stop();
+				pStructServer->pServerLogging->store_log(
+					*pStructServer->remote_endpoint
+					, requestLogMessage
+					, responseLogMessage
+					, pStructServer->pResponseTimer->elapsed()
+					, user
+					, user_agent
+					, req_message
+					, res_message
+				);
+				return send(std::move(res));
+			}
+			if (s.find("user_space") < std::string::npos)
+			{
+				OutputDebugString(L"-> for a browser file download request\n");
+				std::string path = "";
+				std::string s = req.target().to_string();
+				std::string t = "/server_space";
+				if (s.find("user_space") < std::string::npos)
+				{
+					s = s.substr(t.length(), s.length() - t.length());
+					path = path_cat(doc_root, s);
+				}
+				// Request path must be absolute and not contain "..".
+				if (req.target().empty() ||
+					req.target()[0] != '/' ||
+					req.target().find("..") != beast::string_view::npos)
+					return bad_request("Illegal request-target");
+				if (req.target().back() == '/')
+					path.append("index.html");
+				// Attempt to open the file
+				beast::error_code ec;
+				http::file_body::value_type body;
+				body.open(path.c_str(), beast::file_mode::scan, ec);
+				// Handle the case where the file doesn't exist
+				if (ec == beast::errc::no_such_file_or_directory)
+					return not_found(req.target());
+				// Handle an unknown error
+				if (ec)
+					return server_error(ec.message());
+				// Cache the size since we need it after the move
+				auto const size = body.size();
+				http::response<http::file_body> res{
+					std::piecewise_construct,
+					std::make_tuple(std::move(body)),
+					std::make_tuple(http::status::ok, req.version()) };
+				res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+				res.set(http::field::date, beast::string_view(date_for_http_response()));
+				res.set(http::field::content_type, mime_type(path));
+				res.content_length(size);
+				res.keep_alive(req.keep_alive());
+				// stream the response into a std::string, and filter
+				// the response start-line for logging
+				os.clear_and_reset_buffer();
+				os << res << std::endl;
+				std::string res_message = os.get_buffer();
+				OutputDebugStringA(res_message.c_str());
+				std::string responseLogMessage =
+					filter_start_line(res_message);
+				// stop the timer and log the HTTP request/response message
+				pStructServer->pResponseTimer->stop();
+				pStructServer->pServerLogging->store_log(
+					*pStructServer->remote_endpoint
+					, requestLogMessage
+					, responseLogMessage
+					, pStructServer->pResponseTimer->elapsed()
+					, user
+					, user_agent
+					, req_message
+					, res_message
+				);
+				return send(std::move(res));
+			}
 		}
 	}
+
 	// Respond to a HEAD request
 	if (req.method() == http::verb::head) {
 		OutputDebugString(L"-> HEAD message received\n");
+		// not implemented yet
 	}
+
 	// Respond to a OPTIONS request
 	if (req.method() == http::verb::options) {
 		OutputDebugString(L"-> OPTIONS message received\n");
 		// not implemented yet
 	}
+
 	// Respond to a POST request
 	if (req.method() == http::verb::post) {
 		OutputDebugString(L"-> POST message received\n");
-		// a POST request can mean two things
-		// 1) a request to access the server, from an app. or a browser
-		// 2) a file upload from a browser into the user space
 		// check if the POST message is concerning a login
 		if (target == "/login"
 			|| target == "/register"
@@ -1578,26 +1697,25 @@ handle_request(beast::string_view doc_root
 				);
 			}
 			// send the response message
-			return send_response(
-				"ok"
+			return send_response(http::status::ok
 				, "text/html"
 				, response_payload
 			);
 		}
-		// a file upload from a browser into the user space
-		// save the file upload to disk
-		// TODO ...
-		// send the response message
-		return send_response(
-			"no_content"
+		/////////////////////////////////////////////////////////
+		// TODO: a file upload from a browser into the user space
+		/////////////////////////////////////////////////////////
+		return send_response(http::status::no_content
 			, "text/html"
 			, ""
 		);
 	}
+
 	// Respond to a PUT request
 	if (req.method() == http::verb::put) {
 		OutputDebugString(L"-> PUT message received\n");
 	}
+
 	// Respond to a TRACE request
 	if (req.method() == http::verb::trace) {
 		OutputDebugString(L"-> TRACE message received\n");
@@ -1605,11 +1723,10 @@ handle_request(beast::string_view doc_root
 		// inside the payload of the response
 		// in this application a non-standard comment is added
 		http::string_body::value_type response_payload;
-		response_payload = std::string("server is alive\r\n")
-			+ req_message;
+		response_payload = 
+			std::string("server is alive\r\n") + req_message;
 		// send the response message
-		return send_response(
-			"ok"
+		return send_response(http::status::ok
 			, "message/http"
 			, response_payload
 		);
