@@ -186,7 +186,7 @@ InitInstance(HINSTANCE hInstance
 		, pszWindowClass
 		, pszTitle
 		, WS_OVERLAPPEDWINDOW
-		, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0
+		, CW_USEDEFAULT, 0, 500, 300
 		, nullptr
 		, nullptr
 		, hInstance

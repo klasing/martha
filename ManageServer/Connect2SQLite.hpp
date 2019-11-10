@@ -10,12 +10,20 @@ using namespace std;
 //*                     typedef
 //****************************************************************************
 // typedef for sqlite
-typedef std::string td_id
-, td_user_email_address
-, td_user_password;
-typedef std::tuple<td_id
+typedef std::string
+	  td_id
+	, td_user_email_address
+	, td_user_password;
+	//, td_resource_file_name
+	//, td_resource_owner;
+typedef std::tuple<
+	  td_id
 	, td_user_email_address
 	, td_user_password> tuple_user_data;
+//typedef std::tuple<
+//	  td_id
+//	, td_resource_file_name
+//	, td_resource_owner> tuple_resource_data;
 
 //****************************************************************************
 //*                     Connect2SQLite

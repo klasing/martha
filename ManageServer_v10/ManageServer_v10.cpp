@@ -10,23 +10,23 @@
 //*                     typedef
 //****************************************************************************
 // typedef for sqlite
-typedef std::string
-	  td_id
-	, td_time_of_creation
-	, td_user_email_address
-	, td_user_password
-	, td_resource_file_name
-	, td_resource_owner;
-typedef std::tuple<
-	  td_id
-	, td_time_of_creation
-	, td_user_email_address
-	, td_user_password> tuple_user_data;
-typedef std::tuple<
-	  td_id
-	, td_time_of_creation
-	, td_resource_file_name
-	, td_resource_owner> tuple_resource_data;
+//typedef std::string
+//	  td_id
+//	, td_time_of_creation
+//	, td_user_email_address
+//	, td_user_password
+//	, td_resource_file_name
+//	, td_resource_owner;
+//typedef std::tuple<
+//	  td_id
+//	, td_time_of_creation
+//	, td_user_email_address
+//	, td_user_password> tuple_user_data;
+//typedef std::tuple<
+//	  td_id
+//	, td_time_of_creation
+//	, td_resource_file_name
+//	, td_resource_owner> tuple_resource_data;
 // typedef for http_server_async thread
 typedef struct tagSTRUCTSERVER {
 	HWND hWnd = NULL;
@@ -304,6 +304,8 @@ WndProc(HWND hWnd
 				, (WPARAM)0
 				, (LPARAM)0
 			);
+			// sqlite will call IDM_DB_SELECT_ALL_CALLBACK in hWndDlg[0]
+			oSqlite.selectAll_resource(oTabControl.hWndDlg[0]);
 			break;
 		case IDM_MONITORING_START:
 			OutputDebugString(L"IDM_MONITORINGING_START\n");
@@ -590,6 +592,33 @@ Tab0Proc(HWND hDlg
 		// and then showing
 		ShowWindow(hWndLV_resource, SW_SHOW);
 		break;
+	case IDM_DB_RESOURCE_SELECT_ALL_CALLBACK:
+	{
+		OutputDebugString(L"IDM_DB_RESOURCE_SELECT_ALL_CALLBACK [Tab0Proc]\n");
+		// clear listview
+		clearListView(hWndLV_resource);
+		size_t iItem = 0;
+		std::vector<tuple_resource_data>* pvrd =
+			(std::vector<tuple_resource_data>*)lParam;
+		for (auto it = pvrd->begin(); it < pvrd->end(); ++it)
+		{
+			tuple_resource_data trd = *it;
+			addListViewItem(hWndLV_resource
+				, const_cast<char*>(std::get<0>(trd).c_str())
+				, iItem, 0);
+			addListViewItem(hWndLV_resource
+				, const_cast<char*>(std::get<1>(trd).c_str())
+				, iItem, 1);
+			addListViewItem(hWndLV_resource
+				, const_cast<char*>(std::get<2>(trd).c_str())
+				, iItem, 2);
+			addListViewItem(hWndLV_resource
+				, const_cast<char*>(std::get<3>(trd).c_str())
+				, iItem, 3);
+			++iItem;
+		}
+		break;
+	} // eof IDM_DB_USER_SELECT_ALL_CALLBACK
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
@@ -1120,6 +1149,115 @@ void filter_email_password_code(
 	user_code = payload.substr(iBegin, iLength);
 }
 //****************************************************************************
+//*                     filter_filename_payload_from_form_submit
+//****************************************************************************
+// browser form submit for a file upload 
+// delivered within a POST message 
+auto
+filter_filename_payload_from_form_submit(const std::string req_body
+	, std::string& user_email_address
+	, std::string& file_name
+	, std::string& payload
+) -> void
+{
+	OutputDebugStringA(req_body.c_str());
+	// copy the request body into the payload, the payload
+	// will be searched and edited
+	payload = req_body;
+
+	int sbegin = 0;
+	int send = 0;
+	std::string string_to_search_for = "";
+	// filter user_email_address
+	string_to_search_for = "name=\"user_email_address\"";
+	sbegin = payload.find(string_to_search_for);
+	sbegin += string_to_search_for.length();
+	send = sbegin;
+	// look for return, two times, using sbegin as an offset
+	string_to_search_for = "\r";
+	for (int i = 0; i < 2; i++) {
+		send = payload.find(string_to_search_for, sbegin);
+		sbegin = send + 1;
+	}
+	// remove everything up to the send position,
+	// plus 2 for a remaining \r\n
+	send += 2;
+	payload.erase(0, send);
+	// now look for another return, this will be the end
+	// of the user_email_address value
+	send = payload.find(string_to_search_for, 0);
+	user_email_address = payload.substr(0, send);
+
+	// filter file_name
+	// look for: filename="
+	string_to_search_for = "filename=\"";
+	sbegin = req_body.find(string_to_search_for);
+	sbegin += string_to_search_for.length();
+	// look for ", starting at the sbegin position
+	send = req_body.find("\"", sbegin);
+	file_name = req_body.substr(sbegin, send - sbegin);
+
+	// the original payload has additional lines of data
+	// which have to be removed
+
+	//------WebKitFormBoundarygQus3BLIAghh6JYQ
+	//Content-Disposition: form-data; name="file"; filename="bla.txt"
+	//Content-Type: text/plain
+	//
+	//bla bla
+	//------WebKitFormBoundarygQus3BLIAghh6JYQ--
+
+	// copy the request body into the payload, the payload
+	// will be searched and edited
+	//payload = req_body;
+	// look for: ------WebKitFormBoundary
+	string_to_search_for = "------WebKitFormBoundary";
+	send = payload.find(string_to_search_for);
+	// remove everything up to the send position
+	payload.erase(0, send);
+	// look for newline, four times, using sbegin as an offset
+	sbegin = 0;
+	string_to_search_for = "\n";
+	for (int i = 0; i < 4; i++) {
+		send = payload.find(string_to_search_for, sbegin);
+		sbegin = send + 1;
+	}
+	// what remains is one newline at the beginning of the payload
+	// string, remove this newline character
+	payload.erase(0, 1);
+	// remove everything up to the sbegin position
+	payload.erase(0, send);
+	// start at the end of the payload string and
+	// look -backwards- for the first newline from the
+	// last character -which is a newline- minus one
+	send = payload.length() - 2;
+	sbegin = payload.rfind(string_to_search_for, send);
+	payload.erase(sbegin, send);
+}
+//****************************************************************************
+//*                     save_to_disk
+//****************************************************************************
+auto
+save_to_disk(std::shared_ptr<Connect2SQLite> pSqlite
+	, const std::string& file_name
+	, const std::string& payload
+	, const std::string& user
+) -> void
+{
+	// Store the received file on disk
+	std::string file_name_on_server =
+		std::string("user_space/") +
+		file_name;
+	boost::filesystem::path p{ file_name_on_server };
+	boost::filesystem::ofstream ofs{ p };
+	ofs << payload;
+	// insert resource meta-data into the database
+	pSqlite->insertResource(date_for_http_response()
+		, file_name
+		, user
+	);
+}
+//****************************************************************************
 //*                     output_buffer
 //****************************************************************************
 class output_buffer : public std::streambuf
@@ -1288,7 +1426,12 @@ handle_request(beast::string_view doc_root
 	{
 		user = static_cast<std::string>(req[http::field::from]);
 		if (user == "")
+		{
 			user = static_cast<std::string>(req[http::field::cookie]);
+			size_t sbegin = user.find("=", 0);
+			sbegin++;
+			user = user.substr(sbegin, user.length() - sbegin);
+		}
 	}
 
 	// get the target
@@ -1702,11 +1845,19 @@ handle_request(beast::string_view doc_root
 				, response_payload
 			);
 		}
-		/////////////////////////////////////////////////////////
-		// TODO: a file upload from a browser into the user space
-		/////////////////////////////////////////////////////////
+		std::string user = "";
+		std::string file_name = "";
+		std::string payload = "";
+		filter_filename_payload_from_form_submit(
+			static_cast<std::string>(req.body())
+			, user
+			, file_name
+			, payload
+		);
+		save_to_disk(pStructServer->pSqlite, file_name, payload, user);
+		// send the response message
 		return send_response(http::status::no_content
-			, "text/html"
+			, "text/html" // mandatory!!!
 			, ""
 		);
 	}
@@ -1714,6 +1865,16 @@ handle_request(beast::string_view doc_root
 	// Respond to a PUT request
 	if (req.method() == http::verb::put) {
 		OutputDebugString(L"-> PUT message received\n");
+		// remove all the \r-characters (return) from the req.body()
+		boost::erase_all(req.body(), "\r");
+		std::string file_name = static_cast<std::string>(req.target());
+		std::string request_payload = req.body();
+		save_to_disk(pStructServer->pSqlite, file_name, request_payload, user);
+		// send the response message
+		return send_response(http::status::ok
+			, "message/http"
+			, ""
+		);
 	}
 
 	// Respond to a TRACE request
