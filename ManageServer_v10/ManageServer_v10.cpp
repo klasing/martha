@@ -9,25 +9,6 @@
 //****************************************************************************
 //*                     typedef
 //****************************************************************************
-// typedef for sqlite
-//typedef std::string
-//	  td_id
-//	, td_time_of_creation
-//	, td_user_email_address
-//	, td_user_password
-//	, td_resource_file_name
-//	, td_resource_owner;
-//typedef std::tuple<
-//	  td_id
-//	, td_time_of_creation
-//	, td_user_email_address
-//	, td_user_password> tuple_user_data;
-//typedef std::tuple<
-//	  td_id
-//	, td_time_of_creation
-//	, td_resource_file_name
-//	, td_resource_owner> tuple_resource_data;
-// typedef for http_server_async thread
 typedef struct tagSTRUCTSERVER {
 	HWND hWnd = NULL;
 	std::shared_ptr<ServerLogging> pServerLogging = nullptr;
@@ -115,11 +96,6 @@ wWinMain(_In_ HINSTANCE hInstance
 	// Main message loop:
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
-		// necessary to convey a WM_COMMAND message,
-		// containing a (...) message,
-		// to the concerning dialog
-		//if (IsDialogMessage(FindWindow(NULL, L"Create User"), &msg))
-		//	continue;
 		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
 		{
 			TranslateMessage(&msg);
@@ -294,7 +270,7 @@ WndProc(HWND hWnd
 				, (WPARAM)0
 				, (LPARAM)0
 			);
-			// sqlite will call IDM_DB_SELECT_ALL_CALLBACK in hWndDlg[0]
+			// sqlite will call IDM_DB_USER_SELECT_ALL_CALLBACK in hWndDlg[0]
 			oSqlite.selectAll_user(oTabControl.hWndDlg[0]);
 			break;
 		case IDM_DB_RESOURCE_SELECT_ALL:
@@ -304,7 +280,7 @@ WndProc(HWND hWnd
 				, (WPARAM)0
 				, (LPARAM)0
 			);
-			// sqlite will call IDM_DB_SELECT_ALL_CALLBACK in hWndDlg[0]
+			// sqlite will call IDM_DB_RESOURCE_SELECT_ALL_CALLBACK in hWndDlg[0]
 			oSqlite.selectAll_resource(oTabControl.hWndDlg[0]);
 			break;
 		case IDM_MONITORING_START:
@@ -451,7 +427,9 @@ Tab0Proc(HWND hDlg
 	static HWND hWndLV_user; 
 	static HWND hWndLV_resource;
 	static HMENU popup_menu_user;
+	static HMENU popup_menu_resource;
 	static int selection_mark_user = -1;
+	static int selection_mark_resource = -1;
 	static std::string mode = "user";
 	switch (uMsg)
 	{
@@ -485,6 +463,12 @@ Tab0Proc(HWND hDlg
 			, 4
 			, IDS_LVDB_RESOURCE_COL0, IDS_LVDB_RESOURCE_COL1, IDS_LVDB_RESOURCE_COL2
 			, IDS_LVDB_RESOURCE_COL3
+		);
+		popup_menu_resource = CreatePopupMenu();
+		AppendMenu(popup_menu_resource
+			, MF_STRING
+			, IDM_DB_DELETE_RESOURCE
+			, L"&Delete"
 		);
 		return (INT_PTR)TRUE;
 	case WM_SIZE:
@@ -523,27 +507,58 @@ Tab0Proc(HWND hDlg
 		{
 		case NM_RCLICK:
 		{
-			selection_mark_user = SendMessage(hWndLV_user
-				, LVM_GETSELECTIONMARK
-				, (WPARAM)0
-				, (LPARAM)0
-			);
-			if (selection_mark_user == -1)
+			switch (lpNmHdr->idFrom)
+			{
+			case IDC_LVDB_USER:
+			{
+				selection_mark_user = SendMessage(hWndLV_user
+					, LVM_GETSELECTIONMARK
+					, (WPARAM)0
+					, (LPARAM)0
+				);
+				if (selection_mark_user == -1)
+					return 0;
+				// show popup menu
+				POINT ptCursorPos;
+				GetCursorPos(&ptCursorPos);
+				TrackPopupMenu(popup_menu_user
+					, TPM_RIGHTBUTTON
+					, ptCursorPos.x
+					, ptCursorPos.y
+					, 0
+					// the window that receives the IDM_DB_DELETE_USER message
+					// via a WM_COMMAND message
+					, hDlg
+					, NULL
+				);
 				return 0;
-			// show popup menu
-			POINT ptCursorPos;
-			GetCursorPos(&ptCursorPos);
-			TrackPopupMenu(popup_menu_user
-				, TPM_RIGHTBUTTON
-				, ptCursorPos.x
-				, ptCursorPos.y
-				, 0
-				// the window that receives the IDM_DB_DELETE_USER message
-				// via a WM_COMMAND message
-				, hDlg
-				, NULL
-			);
-			return 0;
+			} // eof IDC_LVDB_USER
+			case IDC_LVDB_RESOURCE:
+			{
+				OutputDebugString(L"NM_RCLICK from IDC_LVDB_RESOURCE\n");
+				selection_mark_resource = SendMessage(hWndLV_resource
+					, LVM_GETSELECTIONMARK
+					, (WPARAM)0
+					, (LPARAM)0
+				);
+				if (selection_mark_resource == -1)
+					return 0;
+				// show popup menu
+				POINT ptCursorPos;
+				GetCursorPos(&ptCursorPos);
+				TrackPopupMenu(popup_menu_resource
+					, TPM_RIGHTBUTTON
+					, ptCursorPos.x
+					, ptCursorPos.y
+					, 0
+					// the window that receives the IDM_DB_DELETE_RESOURCE message
+					// via a WM_COMMAND message
+					, hDlg
+					, NULL
+				);
+				return 0;
+			} // eof IDC_LVDB_RESOURCE
+			} // eof switch
 		} // eof NM_RCLICK
 		} // eof switch
 		// the return value is ignored
@@ -647,6 +662,31 @@ Tab0Proc(HWND hDlg
 			delete[] pszText;
 			break;
 		} // eof IDM_DB_DELETE_USER
+		case IDM_DB_DELETE_RESOURCE:
+		{
+			OutputDebugString(L"IDM_DB_DELETE_RESOURCE [Tab0Proc]\n");
+			if (selection_mark_resource == -1)
+				break;
+			PWCHAR pszText = new WCHAR[64];
+			// find the primary key ID for the user that is going to be deleted
+			getListViewItem(hWndLV_resource
+				, selection_mark_resource
+				, 0
+				, pszText
+			);
+			// delete the user from the database,
+			// with the found primary key ID
+			oSqlite.deleteRow("resource", _wtoi(pszText));
+			// delete selected listview item
+			SendMessage(hWndLV_resource
+				, LVM_DELETEITEM
+				, (WPARAM)selection_mark_resource
+				, (LPARAM)0
+			);
+			// clean up
+			delete[] pszText;
+			break;
+		} // eof IDM_DB_DELETE_RESOURCE
 		} // eof switch
 		break;
 	} // eof switch
@@ -1034,31 +1074,6 @@ HWND& helper_for_render_control(std::string typeControl
 	return hWnd;
 }
 //****************************************************************************
-//*                     date_for_http_response
-//****************************************************************************
-//std::string
-//date_for_http_response()
-//{
-//	const std::string dow[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-//	const std::string month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-//	time_t tt;
-//	time(&tt);
-//	tm t;
-//	localtime_s(&t, &tt);
-//	struct tm gmt;
-//	gmtime_s(&gmt, &tt);
-//	std::ostringstream oss;
-//	oss << dow[gmt.tm_wday] << ", "
-//		<< std::setw(2) << std::setfill('0') << gmt.tm_mday << " "
-//		<< month[gmt.tm_mon] << " "
-//		<< gmt.tm_year + 1900 << " "
-//		<< std::setw(2) << std::setfill('0') << gmt.tm_hour << ":"
-//		<< std::setw(2) << std::setfill('0') << gmt.tm_min << ":"
-//		<< std::setw(2) << std::setfill('0') << gmt.tm_sec << " "
-//		<< "GMT";
-//	return oss.str();
-//}
-//****************************************************************************
 //*                     convert_str_to_wchar
 //****************************************************************************
 std::wstring
@@ -1385,9 +1400,6 @@ path_cat(
 template<class Body, class Allocator, class Send>
 void
 handle_request(beast::string_view doc_root
-	//, std::shared_ptr<ServerLogging> pServerLogging
-	//, std::shared_ptr<boost::timer::cpu_timer> pResponseTimer
-	//, std::shared_ptr<std::string const> pRemoteEndpoint
 	, std::shared_ptr<STRUCTSERVER> pStructServer
 	, http::request<Body, http::basic_fields<Allocator>>&& req
 	, Send&& send
@@ -1953,9 +1965,6 @@ class session : public std::enable_shared_from_this<session>
 	beast::flat_buffer buffer_;
 	std::shared_ptr<std::string const> doc_root_;
 	http::request<http::string_body> req_;
-	//std::shared_ptr<ServerLogging> pServerLogging_;
-	//std::shared_ptr<boost::timer::cpu_timer> pResponseTimer_;
-	//std::shared_ptr<std::string const> pRemoteEndpoint_;
 	std::shared_ptr<STRUCTSERVER> pStructServer_;
 	std::shared_ptr<void> res_;
 	send_lambda lambda_;
@@ -1963,16 +1972,10 @@ public:
 	// Take ownership of the stream
 	session(tcp::socket&& socket
 		, std::shared_ptr<std::string const> const& doc_root
-		//, std::shared_ptr<ServerLogging> const& pServerLogging
-		//, std::shared_ptr<boost::timer::cpu_timer> const& pResponseTimer
-		//, std::shared_ptr<std::string const> const& pRemoteEndpoint
 		, std::shared_ptr<STRUCTSERVER> const& pStructServer
 	)
 		: stream_(std::move(socket))
 		, doc_root_(doc_root)
-		//, pServerLogging_(pServerLogging)
-		//, pResponseTimer_(pResponseTimer)
-		//, pRemoteEndpoint_(pRemoteEndpoint)
 		, pStructServer_(pStructServer)
 		, lambda_(*this)
 	{}
@@ -2009,9 +2012,6 @@ public:
 			return fail(ec, "read");
 		// Send the response
 		handle_request(*doc_root_
-			//, pServerLogging_
-			//, pResponseTimer_
-			//, pRemoteEndpoint_
 			, pStructServer_
 			, std::move(req_)
 			, lambda_);
@@ -2054,23 +2054,17 @@ class listener : public std::enable_shared_from_this<listener>
 	net::io_context& ioc_;
 	tcp::acceptor acceptor_;
 	std::shared_ptr<std::string const> doc_root_;
-	//std::shared_ptr<ServerLogging> pServerLogging_;
-	//std::shared_ptr<boost::timer::cpu_timer> pTimer_;
 	std::shared_ptr<STRUCTSERVER> pStructServer_;
 public:
 	listener(net::io_context& ioc
 		, tcp::endpoint endpoint
 		, std::shared_ptr<std::string const> const& doc_root
-		//, std::shared_ptr<ServerLogging> pServerLogging
-		//, std::shared_ptr<boost::timer::cpu_timer> pTimer
 		, std::shared_ptr<STRUCTSERVER> pStructServer
 
 	)
 		: ioc_(ioc)
 		, acceptor_(net::make_strand(ioc))
 		, doc_root_(doc_root)
-		//, pServerLogging_(pServerLogging)
-		//, pTimer_(pTimer)
 		, pStructServer_(pStructServer)
 	{
 		OutputDebugString(L"<<constructor>> listener()\n");
@@ -2117,14 +2111,6 @@ public:
 	{
 		// the server is running, so the timer can be stopped
 		// and a message can be logged
-		//pTimer_->stop();
-		//pServerLogging_->store_log("0.0.0.0"
-		//	, "start server"
-		//	, "server alive"
-		//	, pTimer_->elapsed()
-		//	, ""
-		//	, ""
-		//);
 		pStructServer_->pTimer->stop();
 		pStructServer_->pServerLogging->store_log("0.0.0.0"
 			, "start server"
@@ -2164,10 +2150,6 @@ private:
 			std::string remote_endpoint = boost::lexical_cast<std::string>
 				(socket.remote_endpoint());
 			// construct pointers
-			//std::shared_ptr<boost::timer::cpu_timer> pResponseTimer_ =
-			//	std::make_shared<boost::timer::cpu_timer>(response_timer);
-			//std::shared_ptr<std::string> pRemoteEndpoint_ =
-			//	std::make_shared<std::string>(remote_endpoint);
 			pStructServer_->pResponseTimer =
 				std::make_shared<boost::timer::cpu_timer>(response_timer);
 			pStructServer_->remote_endpoint =
@@ -2175,9 +2157,6 @@ private:
 			// create the session and run it
 			std::make_shared<session>(std::move(socket)
 				, doc_root_
-				//, pServerLogging_
-				//, pResponseTimer_
-				//, pRemoteEndpoint_
 				, pStructServer_
 				)->run();
 		}
@@ -2205,25 +2184,13 @@ DWORD WINAPI http_server_async(LPVOID lpVoid)
 
 	// start timing, on server startup
 	boost::timer::cpu_timer timer;
-	// create pointers for the sake of the 
-	// boost::beast asynchronous http server
-	// 2) shared pointer to ServerLogging instance
-	//auto const pServerLogging_ =
-	//	std::make_shared<ServerLogging>(*pServerLogging);
-	// 3) shared pointer to timer instance 
-	//auto pTimer_ =
-	//	std::make_shared<boost::timer::cpu_timer>(timer);
+	// create pointer for the sake of the 
 	pStructServer->pTimer = 
 		std::make_shared<boost::timer::cpu_timer>(timer);
 
 	// The io_context is required for all I/O
 	net::io_context ioc{ threads };
 	// Create and launch a listening port
-	//std::make_shared<listener>(ioc
-	//	, tcp::endpoint{ address, port }
-	//	, doc_root
-	//	, pServerLogging_
-	//	, pTimer_)->run();
 	std::make_shared<listener>(ioc
 		, tcp::endpoint{ address, port }
 		, doc_root
@@ -2259,13 +2226,6 @@ DWORD WINAPI http_server_async(LPVOID lpVoid)
 	for (auto& t : v)
 		t.join();
 	timer.stop();
-	//pServerLogging->store_log("0.0.0.0"
-	//	, "stop server"
-	//	, "server dead"
-	//	, timer.elapsed()
-	//	, ""
-	//	, ""
-	//);
 	pStructServer->pServerLogging->store_log("0.0.0.0"
 		, "stop server"
 		, "server dead"
